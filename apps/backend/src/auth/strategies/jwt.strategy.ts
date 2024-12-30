@@ -4,7 +4,7 @@ import { COOKIE_NAMES } from '../constants/auth.constants';
 import { StrategiesEnum } from '../constants/strategies.constants';
 import { IGoogleUser } from '../interfaces/auth.interface';
 import { Request } from 'express';
-import { IUser } from '@repo/db';
+import { IUser } from '../auth.service';
 
 declare global {
   namespace Express {

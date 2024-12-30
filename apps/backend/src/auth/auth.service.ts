@@ -9,10 +9,11 @@ import { CookieOptions, Response } from 'express';
 import prisma from '@repo/database';
 import { encrypt } from 'src/utils/encrypt-decrypt';
 
-interface IUser {
+export interface IUser {
   id: string;
   email: string;
   name: string;
+  picture: string;
 }
 
 @Injectable()
@@ -72,6 +73,7 @@ export class AuthService {
         email: true,
         name: true,
         id: true,
+        picture: true,
       },
     });
     const encodedUser = this.encodeUserDataAsJwt(newUser);
@@ -95,12 +97,13 @@ export class AuthService {
         id: user.id,
         email: user.email,
         name: user.name,
+        picture: user.picture,
       }),
       cookieOptions,
     );
   }
 
-  private encodeUserDataAsJwt(user: Omit<IUser, 'accessToken'>) {
+  private encodeUserDataAsJwt(user: IUser) {
     const { id, email, name } = user;
     return this.jwtService.sign({
       id,
