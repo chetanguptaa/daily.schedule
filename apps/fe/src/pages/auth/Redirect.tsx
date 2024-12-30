@@ -11,10 +11,10 @@ export default function Redirect() {
     if (jwtUser) {
       const userFromJwt = jwtDecode(jwtUser);
       if (userFromJwt) {
-        navigate("/");
+        navigate("/dashboard");
       }
     }
-    navigate("/");
+    navigate("/dashboard");
   }, [navigate, searchParams]);
   return <Loading />;
 }

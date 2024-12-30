@@ -1,1 +1,0 @@
-ALTER TABLE "users" ALTER COLUMN "accessToken" SET DATA TYPE varchar(4096);

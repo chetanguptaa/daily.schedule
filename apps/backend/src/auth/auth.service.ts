@@ -6,8 +6,14 @@ import {
   expiresTimeTokenMilliseconds,
 } from './constants/auth.constants';
 import { CookieOptions, Response } from 'express';
-import { IUser, users, db, eq } from '@repo/db';
+import prisma from '@repo/database';
 import { encrypt } from 'src/utils/encrypt-decrypt';
+
+interface IUser {
+  id: string;
+  email: string;
+  name: string;
+}
 
 @Injectable()
 export class AuthService {
@@ -22,18 +28,22 @@ export class AuthService {
   }> {
     try {
       if (!user) throw new BadRequestException('Unauthenticated');
-      const [existingUser] = await db
-        .select()
-        .from(users)
-        .where(eq(users.email, user.email))
-        .limit(1);
+      const existingUser = await prisma.user.findFirst({
+        where: {
+          email: user.email,
+        },
+      });
       if (!existingUser) return this.registerGoogleUser(res, user);
       const { accessToken, ...existingUser2 } = existingUser;
       const encryptedAccessToken = encrypt(accessToken);
-      await db
-        .update(users)
-        .set({ accessToken: encryptedAccessToken })
-        .where(eq(users.email, user.email));
+      await prisma.user.update({
+        where: {
+          email: user.email,
+        },
+        data: {
+          accessToken: encryptedAccessToken,
+        },
+      });
       const encodedUser = this.encodeUserDataAsJwt({
         ...existingUser2,
       });
@@ -51,15 +61,19 @@ export class AuthService {
 
   private async registerGoogleUser(res: Response, user: IGoogleUser) {
     const encryptedAccessToken = encrypt(user.accessToken);
-    const [newUser] = await db
-      .insert(users)
-      .values({
+    const newUser = await prisma.user.create({
+      data: {
         email: user.email,
         name: user.name,
         picture: user.picture,
         accessToken: encryptedAccessToken,
-      })
-      .returning();
+      },
+      select: {
+        email: true,
+        name: true,
+        id: true,
+      },
+    });
     const encodedUser = this.encodeUserDataAsJwt(newUser);
     this.setJwtTokenToCookies(res, newUser);
     return {
@@ -67,10 +81,7 @@ export class AuthService {
     };
   }
 
-  private setJwtTokenToCookies(
-    res: Response,
-    user: Omit<IUser, 'accessToken'>,
-  ) {
+  private setJwtTokenToCookies(res: Response, user: IUser) {
     const expirationDateInMilliseconds =
       new Date().getTime() + expiresTimeTokenMilliseconds;
     const cookieOptions: CookieOptions = {
@@ -84,7 +95,6 @@ export class AuthService {
         id: user.id,
         email: user.email,
         name: user.name,
-        picture: user.picture,
       }),
       cookieOptions,
     );

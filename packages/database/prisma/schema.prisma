@@ -1,0 +1,84 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum EventStatus {
+  pending
+  confirmed
+  rejected
+}
+
+model User {
+  id          String   @id @default(uuid())
+  name        String
+  email       String   @unique
+  accessToken String?  @unique
+  picture     String
+  createdAt   DateTime @default(now())
+  schedules   Schedule[]
+  eventTypes  EventType[]
+}
+
+model Schedule {
+  id         String          @id @default(uuid())
+  userId     String
+  title      String
+  timezone   String          @default("UTC")
+  default    Boolean         @default(false)
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @default(now())
+  user       User            @relation(fields: [userId], references: [id])
+  availabilities Availability[]
+}
+
+model Availability {
+  id           String               @id @default(uuid())
+  scheduleId   String
+  dayOfWeek    Int
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @default(now())
+  schedule     Schedule             @relation(fields: [scheduleId], references: [id])
+  timeSlots    AvailabilityTimeSlot[] 
+}
+
+model AvailabilityTimeSlot {
+  id             String      @id @default(uuid())
+  availabilityId String
+  startTime      String
+  endTime        String
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @default(now())
+  availability   Availability @relation(fields: [availabilityId], references: [id])
+}
+
+model EventType {
+  id       String      @id @default(uuid())
+  userId   String
+  name     String
+  duration Int
+  platform String
+  link     String
+  user     User        @relation(fields: [userId], references: [id])
+  bookings Booking[]
+}
+
+model Booking {
+  id          String      @id @default(uuid())
+  eventTypeId String
+  bookedBy    String
+  startTime   DateTime
+  endTime     DateTime
+  status      EventStatus @default(pending)
+  eventType   EventType   @relation(fields: [eventTypeId], references: [id])
+}

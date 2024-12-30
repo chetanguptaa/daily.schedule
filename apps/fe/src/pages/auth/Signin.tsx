@@ -11,7 +11,7 @@ export default function Signin() {
     queryFn: isLoggedIn,
     retry: 0,
   });
-  if (data?.data) navigate("/");
+  if (data?.data) navigate("/dashboard");
   if (isLoading) {
     return <Loading />;
   }

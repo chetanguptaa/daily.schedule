@@ -1,3 +1,4 @@
+import { AppSidebar } from "@/components/app-sidebar";
 import { BACKEND_URL } from "@/constants";
 import userAtom from "@/store/atoms/userAtom";
 import axios from "axios";
@@ -33,5 +34,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       getResponse();
     }
   }, [user.isLoggedIn]);
-  return <>{children}</>;
+  return (
+    <div className="flex h-screen w-full">
+      <div className="w-64 h-full overflow-y-auto bg-gray-800">
+        <AppSidebar />
+      </div>
+      <main className="w-full h-full overflow-y-auto bg-white">{children}</main>
+    </div>
+  );
 }
