@@ -24,7 +24,7 @@ import queryClient from "@/lib/queryClient";
 import userAtom from "@/store/atoms/userAtom";
 import axios from "axios";
 import { Clock, Ellipsis, Link, Pencil, PlusIcon, Trash } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery } from "react-query";
 import { useNavigate } from "react-router";
 import { useRecoilValue } from "recoil";
@@ -49,14 +49,7 @@ export default function EventTypes() {
   const [description, setDescription] = useState("");
   const user = useRecoilValue(userAtom);
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const newUrl = title.toLowerCase().replace(" ", "-");
-    setUrl(newUrl);
-  }, [title]);
-
   const { data, isLoading, isError } = useQuery(["getEvents"], getEvents);
-
   const createEventMutation = useMutation(createEvents, {
     onSuccess: (data) => {
       if (data.success) {
@@ -198,7 +191,11 @@ export default function EventTypes() {
                   <div className="hover:bg-muted flex items-center justify-between py-5 transition ltr:pl-4 rtl:pr-4 sm:ltr:pl-0 sm:rtl:pr-0">
                     <div className="flex flex-col justify-between items-start px-6">
                       <div className="group flex w-full items-center justify-between">
-                        <a className="flex-grow truncate text-sm" title="Working Hours" href={"/event-types/" + s.id}>
+                        <a
+                          className="flex-grow truncate text-sm"
+                          title="Working Hours"
+                          href={"/event-types/" + s.id + "?tab=event-setup"}
+                        >
                           <div className="space-x-2 rtl:space-x-reverse">
                             <span className="capitalize truncate font-medium text-lg">{s.title}</span>
                             <span className="text-xs text-gray-400">
@@ -213,7 +210,13 @@ export default function EventTypes() {
                       </div>
                     </div>
                     <div className="flex">
-                      <Button className="bg-white hover:bg-white rounded-r-none border-none hover:bg-gray-100">
+                      <Button
+                        className="bg-white hover:bg-white rounded-r-none border-none hover:bg-gray-100"
+                        onClick={() => {
+                          navigator.clipboard.writeText("localhost:5173/" + user.user?.email + "/" + s.link);
+                          toast("Link copied successfully");
+                        }}
+                      >
                         <Link className="text-black" />
                       </Button>
                       <DropdownMenu>
@@ -224,7 +227,7 @@ export default function EventTypes() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent className="w-32 mr-4">
                           <DropdownMenuGroup>
-                            <DropdownMenuItem onClick={() => navigate("/event-types/" + s.id)}>
+                            <DropdownMenuItem onClick={() => navigate("/event-types/" + s.id + "?tab=event-setup")}>
                               <Pencil />
                               Edit
                             </DropdownMenuItem>

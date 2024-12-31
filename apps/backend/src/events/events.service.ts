@@ -1,5 +1,5 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
-import { ICreateEvent } from './dto';
+import { ICreateEvent, IUpdateEvent } from './dto';
 import prisma from '@repo/database';
 
 @Injectable()
@@ -59,5 +59,48 @@ export class EventsService {
       duration: ev.duration,
       link: ev.link,
     }));
+  }
+
+  async getUserSingleEvent(userId: string, eventId: string) {
+    const event = await prisma.event.findUnique({
+      where: {
+        userId,
+        id: eventId,
+      },
+      include: {
+        platform: true,
+        schedule: true,
+      },
+    });
+    return {
+      id: event.id,
+      title: event.title,
+      description: event.description,
+      link: event.link,
+      duration: event.duration,
+      platform: {
+        id: event.platform.id,
+        name: event.platform.name,
+      },
+      schedule: event.schedule.title,
+      timezone: event.schedule.timezone,
+      default: event.schedule.default,
+    };
+  }
+
+  async updateEvent(userId: string, eventId: string, data: IUpdateEvent) {
+    const event = await prisma.event.update({
+      where: {
+        userId,
+        id: eventId,
+      },
+      data,
+    });
+    if (event) {
+      return {
+        success: true,
+        message: 'Event updated successfully',
+      };
+    }
   }
 }

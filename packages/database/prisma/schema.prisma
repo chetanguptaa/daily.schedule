@@ -71,7 +71,7 @@ model Event {
   title       String
   description String    @default("")
   duration    Int       @default(15)
-  link        String
+  link        String    @unique
   platform    Platform  @relation(fields: [platformId], references: [id])
   user        User      @relation(fields: [userId], references: [id])
   schedule    Schedule  @relation(fields: [scheduleId], references: [id])
