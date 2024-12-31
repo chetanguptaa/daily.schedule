@@ -1,5 +1,9 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { ICreateUserScheduleSlotType, ICreateUserScheduleType } from './dto';
+import {
+  ICreateUserScheduleSlotType,
+  ICreateUserScheduleType,
+  IDeleteUserSchedule,
+} from './dto';
 import prisma from '@repo/database';
 
 @Injectable()
@@ -11,14 +15,21 @@ export class CalenderService {
       where: {
         userId,
       },
+      include: {
+        availabilities: {
+          include: {
+            timeSlots: true,
+          },
+        },
+      },
     });
-    return userSchedules.map((us) => {
-      return {
-        id: us.id,
-        title: us.title,
-        timezone: us.timezone,
-      };
-    });
+    return userSchedules.map((us) => ({
+      id: us.id,
+      availability: this.formatAvailability(us.availabilities),
+      timezone: us.timezone,
+      title: us.title,
+      default: us.default,
+    }));
   }
 
   async createUserSchedule(userId: string, data: ICreateUserScheduleType) {
@@ -80,7 +91,6 @@ export class CalenderService {
       });
       for (const [day, daySlots] of Object.entries(data.slots)) {
         if (daySlots.length > 0) {
-          // Insert into availabilities
           const availability = await prismaTransaction.availability.create({
             data: {
               scheduleId: data.scheduleId,
@@ -102,5 +112,130 @@ export class CalenderService {
         }
       }
     });
+    return {
+      message: 'Slots added successfully',
+    };
+  }
+
+  async deleteUserSchedule(userId: string, data: IDeleteUserSchedule) {
+    const schedule = await prisma.schedule.findUnique({
+      where: { id: data.id, userId },
+    });
+    if (!schedule || schedule.userId !== userId) {
+      throw new BadRequestException();
+    }
+    const res = await prisma.schedule.delete({
+      where: {
+        id: data.id,
+      },
+    });
+    if (res.id) {
+      return {
+        success: true,
+        message: 'Schedule deleted successfully!!!',
+      };
+    }
+  }
+
+  async getSlots(userId: string, scheduleId: string) {
+    const schedule = await prisma.schedule.findFirst({
+      where: {
+        userId,
+        id: scheduleId,
+      },
+      include: {
+        availabilities: {
+          include: {
+            timeSlots: true,
+          },
+        },
+      },
+    });
+    if (!schedule) {
+      throw new BadRequestException();
+    }
+    return schedule;
+  }
+
+  private formatAvailability(
+    data: {
+      id: string;
+      scheduleId: string;
+      dayOfWeek: number;
+      timeSlots: {
+        id: string;
+        availabilityId: string;
+        startTime: string;
+        endTime: string;
+      }[];
+    }[],
+  ) {
+    const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    function groupDaysByTimeSlots(
+      availabilities: {
+        id: string;
+        scheduleId: string;
+        dayOfWeek: number;
+        timeSlots: {
+          id: string;
+          availabilityId: string;
+          startTime: string;
+          endTime: string;
+        }[];
+      }[],
+    ) {
+      const timeSlotMap = new Map<string, Array<number>>();
+      availabilities.forEach(({ dayOfWeek, timeSlots }) => {
+        timeSlots.forEach(({ startTime, endTime }) => {
+          const timeSlotKey = `${startTime}-${endTime}`;
+          if (!timeSlotMap.has(timeSlotKey)) {
+            timeSlotMap.set(timeSlotKey, []);
+          }
+          timeSlotMap.get(timeSlotKey).push(dayOfWeek);
+        });
+      });
+      return timeSlotMap;
+    }
+    function formatDayRanges(days) {
+      days.sort((a, b) => a - b);
+      const ranges = [];
+      let start = days[0];
+      let end = days[0];
+      for (let i = 1; i < days.length; i++) {
+        if (days[i] === end + 1) {
+          end = days[i];
+        } else {
+          ranges.push(
+            start === end
+              ? `${daysOfWeek[start]}`
+              : `${daysOfWeek[start]} - ${daysOfWeek[end]}`,
+          );
+          start = days[i];
+          end = days[i];
+        }
+      }
+      ranges.push(
+        start === end
+          ? `${daysOfWeek[start]}`
+          : `${daysOfWeek[start]} - ${daysOfWeek[end]}`,
+      );
+      return ranges.join(', ');
+    }
+    const timeSlotMap = groupDaysByTimeSlots(data);
+    const result = [];
+    timeSlotMap.forEach((days, timeSlotKey) => {
+      const [startTime, endTime] = timeSlotKey.split('-');
+      const formattedDays = formatDayRanges(days);
+      const formattedTime = `${this.convertTo12Hour(startTime)} - ${this.convertTo12Hour(endTime)}`;
+      result.push(`${formattedDays}, ${formattedTime}`);
+    });
+    return result;
+  }
+
+  private convertTo12Hour(time) {
+    const [hour, minute] = time.split(':').map(Number);
+    const period = hour >= 12 ? 'PM' : 'AM';
+    const adjustedHour = hour % 12 || 12;
+    return `${adjustedHour}:${minute.toString().padStart(2, '0')} ${period}`;
   }
 }

@@ -1,7 +1,9 @@
 import {
   BadRequestException,
   Controller,
+  Delete,
   Get,
+  Param,
   Post,
   Req,
   UseGuards,
@@ -9,7 +11,11 @@ import {
 import { Request } from 'express';
 import { JwtGuard } from 'src/auth/guards/jwt-auth.guard';
 import { CalenderService } from './calender.service';
-import { createUserScheduleSchema, createUserScheduleSlotSchema } from './dto';
+import {
+  createUserScheduleSchema,
+  createUserScheduleSlotSchema,
+  deleteUserScheduleSchema,
+} from './dto';
 
 @Controller('calender')
 @UseGuards(JwtGuard)
@@ -30,6 +36,15 @@ export class CalenderController {
     return await this.calenderService.createUserSchedule(req.user.id, res.data);
   }
 
+  @Delete('schedules/:id')
+  async deleteUserSchedule(@Req() req: Request, @Param('id') id: string) {
+    const res = await deleteUserScheduleSchema.safeParseAsync({ id });
+    if (res.error) {
+      throw new BadRequestException();
+    }
+    return await this.calenderService.deleteUserSchedule(req.user.id, res.data);
+  }
+
   @Post('schedules/add-slots')
   async addSlots(@Req() req: Request) {
     const res = await createUserScheduleSlotSchema.safeParseAsync(req.body);
@@ -37,5 +52,10 @@ export class CalenderController {
       throw new BadRequestException();
     }
     return await this.calenderService.addSlots(req.user.id, req.body);
+  }
+
+  @Get('schedules/:id/slots')
+  async getSlots(@Req() req: Request, @Param('id') id: string) {
+    return await this.calenderService.getSlots(req.user.id, id);
   }
 }

@@ -36,7 +36,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   }, [user.isLoggedIn]);
   return (
     <div className="flex h-screen w-full">
-      <div className="w-64 h-full overflow-y-auto bg-gray-800">
+      <div className="h-full w-64 overflow-y-auto bg-white">
         <AppSidebar />
       </div>
       <main className="w-full h-full overflow-y-auto bg-white">{children}</main>

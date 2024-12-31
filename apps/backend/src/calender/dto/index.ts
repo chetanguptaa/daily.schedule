@@ -38,3 +38,11 @@ export const createUserScheduleSlotSchema = z
 export type ICreateUserScheduleSlotType = z.infer<
   typeof createUserScheduleSlotSchema
 >;
+
+export const deleteUserScheduleSchema = z
+  .object({
+    id: z.string().uuid(),
+  })
+  .strict();
+
+export type IDeleteUserSchedule = z.infer<typeof deleteUserScheduleSchema>;

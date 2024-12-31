@@ -43,7 +43,7 @@ const items = [
 
 export function AppSidebar() {
   return (
-    <Sidebar collapsible="none" className="max-h-[100vh] h-[100vh] hidden sm:flex">
+    <Sidebar collapsible="none" className="min-w-36 max-h-[100vh] h-[100vh] hidden sm:flex max-w-48">
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel>daily.schedule</SidebarGroupLabel>

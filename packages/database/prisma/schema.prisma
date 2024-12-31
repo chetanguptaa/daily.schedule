@@ -20,57 +20,62 @@ enum EventStatus {
 }
 
 model User {
-  id          String   @id @default(uuid())
+  id          String     @id @default(uuid())
   name        String
-  email       String   @unique
-  accessToken String?  @unique
+  email       String     @unique
+  accessToken String?    @unique
   picture     String
-  createdAt   DateTime @default(now())
+  createdAt   DateTime   @default(now())
   schedules   Schedule[]
-  eventTypes  EventType[]
+  events      Event[]
 }
 
 model Schedule {
-  id         String          @id @default(uuid())
-  userId     String
-  title      String
-  timezone   String          @default("UTC")
-  default    Boolean         @default(false)
-  createdAt  DateTime        @default(now())
-  updatedAt  DateTime        @default(now())
-  user       User            @relation(fields: [userId], references: [id])
+  id             String         @id @default(uuid())
+  userId         String
+  title          String
+  timezone       String         @default("UTC")
+  default        Boolean        @default(false)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @default(now())
+  user           User           @relation(fields: [userId], references: [id])
   availabilities Availability[]
+  events         Event[]
 }
 
 model Availability {
-  id           String               @id @default(uuid())
-  scheduleId   String
-  dayOfWeek    Int
-  createdAt    DateTime             @default(now())
-  updatedAt    DateTime             @default(now())
-  schedule     Schedule             @relation(fields: [scheduleId], references: [id])
-  timeSlots    AvailabilityTimeSlot[] 
+  id         String                 @id @default(uuid())
+  scheduleId String
+  dayOfWeek  Int
+  createdAt  DateTime               @default(now())
+  updatedAt  DateTime               @default(now())
+  schedule   Schedule               @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  timeSlots  AvailabilityTimeSlot[]
 }
 
 model AvailabilityTimeSlot {
-  id             String      @id @default(uuid())
+  id             String       @id @default(uuid())
   availabilityId String
   startTime      String
   endTime        String
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @default(now())
-  availability   Availability @relation(fields: [availabilityId], references: [id])
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @default(now())
+  availability   Availability @relation(fields: [availabilityId], references: [id], onDelete: Cascade)
 }
 
-model EventType {
-  id       String      @id @default(uuid())
-  userId   String
-  name     String
-  duration Int
-  platform String
-  link     String
-  user     User        @relation(fields: [userId], references: [id])
-  bookings Booking[]
+model Event {
+  id          String    @id @default(uuid())
+  userId      String
+  scheduleId  String
+  platformId  String
+  title       String
+  description String    @default("")
+  duration    Int       @default(15)
+  link        String
+  platform    Platform  @relation(fields: [platformId], references: [id])
+  user        User      @relation(fields: [userId], references: [id])
+  schedule    Schedule  @relation(fields: [scheduleId], references: [id])
+  bookings    Booking[]
 }
 
 model Booking {
@@ -80,5 +85,12 @@ model Booking {
   startTime   DateTime
   endTime     DateTime
   status      EventStatus @default(pending)
-  eventType   EventType   @relation(fields: [eventTypeId], references: [id])
+  events      Event       @relation(fields: [eventTypeId], references: [id])
+}
+
+model Platform {
+  id      String  @id @default(uuid())
+  name    String
+  default Boolean @default(false)
+  events  Event[]
 }

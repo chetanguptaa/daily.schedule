@@ -7,6 +7,7 @@ import Landing from "./pages/landing/Landing";
 import Availability from "./pages/availability/Availability";
 import EventTypes from "./pages/event-types/EventTypes";
 import AddSlots from "./pages/availability/add-slots/AddSlots";
+import EditEvents from "./pages/event-types/edit-events/edit-events";
 
 function App() {
   return (
@@ -41,6 +42,14 @@ function App() {
           element={
             <RootLayout>
               <EventTypes />
+            </RootLayout>
+          }
+        />
+        <Route
+          path="/event-types/:id"
+          element={
+            <RootLayout>
+              <EditEvents />
             </RootLayout>
           }
         />
