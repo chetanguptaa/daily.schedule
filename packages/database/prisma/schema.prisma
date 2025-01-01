@@ -13,7 +13,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum EventStatus {
+enum BookingStatus {
   pending
   confirmed
   rejected
@@ -38,22 +38,51 @@ model Schedule {
   default        Boolean        @default(false)
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @default(now())
-  user           User           @relation(fields: [userId], references: [id])
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   availabilities Availability[]
   events         Event[]
 }
 
 model Availability {
-  id         String                 @id @default(uuid())
+  id         String     @id @default(uuid())
   scheduleId String
   dayOfWeek  Int
-  createdAt  DateTime               @default(now())
-  updatedAt  DateTime               @default(now())
-  schedule   Schedule               @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
-  timeSlots  AvailabilityTimeSlot[]
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @default(now())
+  schedule   Schedule   @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  timeSlots  TimeSlot[]
 }
 
-model AvailabilityTimeSlot {
+model Event {
+  id          String    @id @default(uuid())
+  platformId  String
+  scheduleId  String
+  userId      String
+  title       String
+  description String    @default("")
+  duration    Int       @default(15)
+  link        String
+  platform    Platform  @relation(fields: [platformId], references: [id])
+  schedule    Schedule  @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id])
+  bookings    Booking[]
+}
+
+model Booking {
+  id        String        @id @default(uuid())
+  eventId   String
+  bookedBy  String
+  startTime String
+  date      DateTime
+  status    BookingStatus @default(pending)
+  event     Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+}
+
+/**
+ * TimeSlot is a big timeframe lets say a user will say he is free from 9am to 5pm
+ * in that time frame we can multiple events.
+ */
+model TimeSlot {
   id             String       @id @default(uuid())
   availabilityId String
   startTime      String
@@ -61,31 +90,6 @@ model AvailabilityTimeSlot {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @default(now())
   availability   Availability @relation(fields: [availabilityId], references: [id], onDelete: Cascade)
-}
-
-model Event {
-  id          String    @id @default(uuid())
-  userId      String
-  scheduleId  String
-  platformId  String
-  title       String
-  description String    @default("")
-  duration    Int       @default(15)
-  link        String    @unique
-  platform    Platform  @relation(fields: [platformId], references: [id])
-  user        User      @relation(fields: [userId], references: [id])
-  schedule    Schedule  @relation(fields: [scheduleId], references: [id])
-  bookings    Booking[]
-}
-
-model Booking {
-  id          String      @id @default(uuid())
-  eventTypeId String
-  bookedBy    String
-  startTime   DateTime
-  endTime     DateTime
-  status      EventStatus @default(pending)
-  events      Event       @relation(fields: [eventTypeId], references: [id])
 }
 
 model Platform {

@@ -38,7 +38,7 @@ export class CalenderService {
         userId,
       },
     });
-    if (doesSchedulesExist) {
+    if (!doesSchedulesExist) {
       const newSchedule = await prisma.schedule.create({
         data: {
           userId: userId,
@@ -61,7 +61,6 @@ export class CalenderService {
         data: {
           userId: userId,
           title: data.title,
-          default: true,
         },
         select: {
           id: true,
@@ -105,7 +104,7 @@ export class CalenderService {
               startTime: slot.startTime,
               endTime: slot.endTime,
             }));
-            await prismaTransaction.availabilityTimeSlot.createMany({
+            await prismaTransaction.timeSlot.createMany({
               data: timeSlotsData,
             });
           }

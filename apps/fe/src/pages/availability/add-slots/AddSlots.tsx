@@ -186,124 +186,126 @@ export default function AddSlots() {
         <CardTitle>Set Your Weekly Availability</CardTitle>
         <CardDescription>Define your working hours for each day of the week</CardDescription>
       </CardHeader>
-      {isDataPrefilled && !isError && (
-        <CardContent>
-          <div className="mb-6 space-y-2">
-            <Label htmlFor="timezone-select">Your Timezone</Label>
-            <Select value={timezone} onValueChange={handleTimezoneChange}>
-              <SelectTrigger id="timezone-select" className="w-full">
-                <SelectValue placeholder="Select your timezone" />
-              </SelectTrigger>
-              <SelectContent>
-                <div className="mb-2 px-2">
-                  <Input
-                    placeholder="Search timezone..."
-                    value={timezoneSearch}
-                    onChange={(e) => setTimezoneSearch(e.target.value)}
-                    ref={searchInputRef}
-                    onFocus={() => searchInputRef.current?.select()}
-                  />
-                </div>
-                <ScrollArea className="h-[200px]">
-                  {filteredTimezones.map((tz) => (
-                    <SelectItem key={tz} value={tz}>
-                      {tz}
-                    </SelectItem>
-                  ))}
-                </ScrollArea>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-6">
-            {daysOfWeek.map((day) => (
-              <div key={day} className="space-y-2">
-                <div className="flex items-center space-x-4">
-                  <div className="w-24">
-                    <Label>{day === 0 && "Monday"}</Label>
-                    <Label>{day === 1 && "Tuesday"}</Label>
-                    <Label>{day === 2 && "Wednesday"}</Label>
-                    <Label>{day === 3 && "Thursday"}</Label>
-                    <Label>{day === 4 && "Friday"}</Label>
-                    <Label>{day === 5 && "Saturday"}</Label>
-                    <Label>{day === 6 && "Sunday"}</Label>
+      {((data && data.availabilities && data.availabilities.length > 0 && isDataPrefilled) ||
+        (data && data.availabilities && data.availabilities.length === 0)) &&
+        !isError && (
+          <CardContent>
+            <div className="mb-6 space-y-2">
+              <Label htmlFor="timezone-select">Your Timezone</Label>
+              <Select value={timezone} onValueChange={handleTimezoneChange}>
+                <SelectTrigger id="timezone-select" className="w-full">
+                  <SelectValue placeholder="Select your timezone" />
+                </SelectTrigger>
+                <SelectContent>
+                  <div className="mb-2 px-2">
+                    <Input
+                      placeholder="Search timezone..."
+                      value={timezoneSearch}
+                      onChange={(e) => setTimezoneSearch(e.target.value)}
+                      ref={searchInputRef}
+                      onFocus={() => searchInputRef.current?.select()}
+                    />
                   </div>
-                  <Switch
-                    checked={weekSchedule[day].isAvailable}
-                    onCheckedChange={(checked) => handleAvailabilityChange(day, checked)}
-                  />
+                  <ScrollArea className="h-[200px]">
+                    {filteredTimezones.map((tz) => (
+                      <SelectItem key={tz} value={tz}>
+                        {tz}
+                      </SelectItem>
+                    ))}
+                  </ScrollArea>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-6">
+              {daysOfWeek.map((day) => (
+                <div key={day} className="space-y-2">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-24">
+                      <Label>{day === 0 && "Monday"}</Label>
+                      <Label>{day === 1 && "Tuesday"}</Label>
+                      <Label>{day === 2 && "Wednesday"}</Label>
+                      <Label>{day === 3 && "Thursday"}</Label>
+                      <Label>{day === 4 && "Friday"}</Label>
+                      <Label>{day === 5 && "Saturday"}</Label>
+                      <Label>{day === 6 && "Sunday"}</Label>
+                    </div>
+                    <Switch
+                      checked={weekSchedule[day].isAvailable}
+                      onCheckedChange={(checked) => handleAvailabilityChange(day, checked)}
+                    />
+                    {weekSchedule[day].isAvailable && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => copyToWholeWeek(day)}
+                        title={`Copy ${day}'s schedule to whole week`}
+                      >
+                        <Copy className="h-4 w-4 mr-2" />
+                        Copy to Week
+                      </Button>
+                    )}
+                  </div>
                   {weekSchedule[day].isAvailable && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => copyToWholeWeek(day)}
-                      title={`Copy ${day}'s schedule to whole week`}
-                    >
-                      <Copy className="h-4 w-4 mr-2" />
-                      Copy to Week
-                    </Button>
+                    <div className="ml-28 space-y-2">
+                      {weekSchedule[day].timeSlots.map((slot, index) => (
+                        <div key={index} className="flex items-center space-x-2">
+                          <Select
+                            value={slot.startTime}
+                            onValueChange={(value) => handleTimeChange(day, index, "startTime", value)}
+                          >
+                            <SelectTrigger className="w-[120px]">
+                              <SelectValue placeholder="Start time" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {timeOptions.map((time) => (
+                                <SelectItem key={time} value={time}>
+                                  {time}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <span>to</span>
+                          <Select
+                            value={slot.endTime}
+                            onValueChange={(value) => handleTimeChange(day, index, "endTime", value)}
+                          >
+                            <SelectTrigger className="w-[120px]">
+                              <SelectValue placeholder="End time" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {timeOptions.map((time) => (
+                                <SelectItem key={time} value={time}>
+                                  {time}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {index !== 0 && (
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => removeTimeSlot(day, index)}
+                              title="Remove time slot"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                      <Button variant="outline" size="sm" onClick={() => addTimeSlot(day)}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Time Slot
+                      </Button>
+                    </div>
                   )}
                 </div>
-                {weekSchedule[day].isAvailable && (
-                  <div className="ml-28 space-y-2">
-                    {weekSchedule[day].timeSlots.map((slot, index) => (
-                      <div key={index} className="flex items-center space-x-2">
-                        <Select
-                          value={slot.startTime}
-                          onValueChange={(value) => handleTimeChange(day, index, "startTime", value)}
-                        >
-                          <SelectTrigger className="w-[120px]">
-                            <SelectValue placeholder="Start time" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {timeOptions.map((time) => (
-                              <SelectItem key={time} value={time}>
-                                {time}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <span>to</span>
-                        <Select
-                          value={slot.endTime}
-                          onValueChange={(value) => handleTimeChange(day, index, "endTime", value)}
-                        >
-                          <SelectTrigger className="w-[120px]">
-                            <SelectValue placeholder="End time" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {timeOptions.map((time) => (
-                              <SelectItem key={time} value={time}>
-                                {time}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {index !== 0 && (
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => removeTimeSlot(day, index)}
-                            title="Remove time slot"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    ))}
-                    <Button variant="outline" size="sm" onClick={() => addTimeSlot(day)}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Time Slot
-                    </Button>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-          <Button className="mt-6 w-full" onClick={handleSubmit} disabled={isError || isLoading}>
-            Save Availability
-          </Button>
-        </CardContent>
-      )}
+              ))}
+            </div>
+            <Button className="mt-6 w-full" onClick={handleSubmit} disabled={isError || isLoading}>
+              Save Availability
+            </Button>
+          </CardContent>
+        )}
     </Card>
   );
 }

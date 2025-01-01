@@ -1,4 +1,8 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { ICreateEvent, IUpdateEvent } from './dto';
 import prisma from '@repo/database';
 
@@ -18,11 +22,20 @@ export class EventsService {
         default: true,
       },
     });
+    const event = await prisma.event.findFirst({
+      where: {
+        link: data.url,
+        userId,
+      },
+    });
     if (!schedule || !platform) throw new InternalServerErrorException();
+    if (event) {
+      throw new BadRequestException('Event with this link already exist');
+    }
     const res = await prisma.event.create({
       data: {
-        userId,
         scheduleId: schedule.id,
+        userId,
         platformId: platform.id,
         title: data.title,
         description: data.description,
@@ -64,8 +77,8 @@ export class EventsService {
   async getUserSingleEvent(userId: string, eventId: string) {
     const event = await prisma.event.findUnique({
       where: {
-        userId,
         id: eventId,
+        userId,
       },
       include: {
         platform: true,
@@ -91,8 +104,8 @@ export class EventsService {
   async updateEvent(userId: string, eventId: string, data: IUpdateEvent) {
     const event = await prisma.event.update({
       where: {
-        userId,
         id: eventId,
+        userId,
       },
       data,
     });

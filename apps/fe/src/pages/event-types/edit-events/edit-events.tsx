@@ -174,7 +174,7 @@ export default function EditEvents() {
                 <Button
                   className="bg-white hover:bg-white rounded-r-none border-none hover:bg-gray-100"
                   onClick={() => {
-                    navigator.clipboard.writeText("localhost:5173/" + user.user?.email + "/" + event.link);
+                    navigator.clipboard.writeText("localhost:5173/" + user.user?.id + "/" + event.link);
                     toast("Link copied successfully");
                   }}
                 >
@@ -272,7 +272,7 @@ export default function EditEvents() {
                             <div className="min-h-9 flex flex-col justify-center text-sm leading-7 text-default">
                               <span className="flex max-w-2xl overflow-y-auto whitespace-nowrap">
                                 <span className="max-w-24 md:max-w-56" data-state="closed">
-                                  https://cal.com/chetangupta/
+                                  https://daily.schedule/{user.user?.id}/
                                 </span>
                               </span>
                             </div>

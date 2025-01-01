@@ -24,7 +24,7 @@ import queryClient from "@/lib/queryClient";
 import userAtom from "@/store/atoms/userAtom";
 import axios from "axios";
 import { Clock, Ellipsis, Link, Pencil, PlusIcon, Trash } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "react-query";
 import { useNavigate } from "react-router";
 import { useRecoilValue } from "recoil";
@@ -87,6 +87,14 @@ export default function EventTypes() {
     });
   };
 
+  useEffect(() => {
+    const newUrl = title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    setUrl(newUrl);
+  }, [title]);
+
   if (isError) return <>error.</>;
 
   return (
@@ -131,7 +139,7 @@ export default function EventTypes() {
                     <div className="min-h-9 flex flex-col justify-center text-sm leading-7 text-default">
                       <span className="flex max-w-2xl overflow-y-auto whitespace-nowrap">
                         <span className="max-w-24 md:max-w-56" data-state="closed">
-                          https://cal.com/chetangupta/
+                          https://daily.schedule/{user.user?.id}/
                         </span>
                       </span>
                     </div>
@@ -199,7 +207,7 @@ export default function EventTypes() {
                           <div className="space-x-2 rtl:space-x-reverse">
                             <span className="capitalize truncate font-medium text-lg">{s.title}</span>
                             <span className="text-xs text-gray-400">
-                              /{user.user?.email}/{s.link}
+                              /{user.user?.id}/{s.link}
                             </span>
                           </div>
                         </a>
@@ -213,7 +221,7 @@ export default function EventTypes() {
                       <Button
                         className="bg-white hover:bg-white rounded-r-none border-none hover:bg-gray-100"
                         onClick={() => {
-                          navigator.clipboard.writeText("localhost:5173/" + user.user?.email + "/" + s.link);
+                          navigator.clipboard.writeText("localhost:5173/" + user.user?.id + "/" + s.link);
                           toast("Link copied successfully");
                         }}
                       >

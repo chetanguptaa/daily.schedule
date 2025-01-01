@@ -3,11 +3,11 @@ import { Request } from 'express';
 import { JwtGuard } from 'src/auth/guards/jwt-auth.guard';
 
 @Controller('user')
-@UseGuards(JwtGuard)
 export class UserController {
   constructor() {}
 
   @Get()
+  @UseGuards(JwtGuard)
   async getUser(@Req() req: Request) {
     if (req.user) {
       return {
