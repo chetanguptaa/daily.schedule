@@ -5,6 +5,7 @@ import {
   IDeleteUserSchedule,
 } from './dto';
 import prisma from '@repo/database';
+import { timeToInt } from 'src/utils/formatter';
 
 @Injectable()
 export class CalenderService {
@@ -88,7 +89,14 @@ export class CalenderService {
         where: { id: data.scheduleId },
         data: { timezone: data.timezone },
       });
+      await prismaTransaction.availability.deleteMany({
+        where: {
+          scheduleId: data.scheduleId,
+        },
+      });
       for (const [day, daySlots] of Object.entries(data.slots)) {
+        console.log('whats up ', day, daySlots);
+
         if (daySlots.length > 0) {
           const availability = await prismaTransaction.availability.create({
             data: {
@@ -99,11 +107,20 @@ export class CalenderService {
           });
           const availabilityId = availability.id;
           if (availabilityId) {
-            const timeSlotsData = daySlots.map((slot) => ({
-              availabilityId,
-              startTime: slot.startTime,
-              endTime: slot.endTime,
-            }));
+            const timeSlotsData = daySlots.map((slot) => {
+              if (timeToInt(slot.startTime) >= timeToInt(slot.endTime)) return;
+              return {
+                availabilityId,
+                startTime: slot.startTime,
+                endTime: slot.endTime,
+              };
+            });
+            console.log('what is the availability id ', availabilityId);
+            await prismaTransaction.timeSlot.deleteMany({
+              where: {
+                availabilityId,
+              },
+            });
             await prismaTransaction.timeSlot.createMany({
               data: timeSlotsData,
             });

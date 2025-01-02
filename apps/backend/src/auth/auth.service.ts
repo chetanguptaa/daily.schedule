@@ -7,7 +7,6 @@ import {
 } from './constants/auth.constants';
 import { CookieOptions, Response } from 'express';
 import prisma from '@repo/database';
-import { encrypt } from 'src/utils/encrypt-decrypt';
 
 export interface IUser {
   id: string;
@@ -36,7 +35,9 @@ export class AuthService {
       });
       if (!existingUser) return this.registerGoogleUser(res, user);
       const { accessToken, ...existingUser2 } = existingUser;
-      const encryptedAccessToken = encrypt(accessToken);
+      const encryptedAccessToken = user.accessToken;
+      console.log('what is the accessToken ', accessToken);
+
       await prisma.user.update({
         where: {
           email: user.email,
@@ -61,7 +62,7 @@ export class AuthService {
   }
 
   private async registerGoogleUser(res: Response, user: IGoogleUser) {
-    const encryptedAccessToken = encrypt(user.accessToken);
+    const encryptedAccessToken = user.accessToken;
     const newUser = await prisma.user.create({
       data: {
         email: user.email,
