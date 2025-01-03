@@ -7,6 +7,7 @@ import {
 } from './constants/auth.constants';
 import { CookieOptions, Response } from 'express';
 import prisma from '@repo/database';
+import { OAuth2Client } from 'google-auth-library';
 
 export interface IUser {
   id: string;
@@ -17,11 +18,19 @@ export interface IUser {
 
 @Injectable()
 export class AuthService {
-  constructor(private jwtService: JwtService) {}
+  private oAuth2Client: OAuth2Client;
+  constructor(private jwtService: JwtService) {
+    this.oAuth2Client = new OAuth2Client(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+      process.env.GOOGLE_REDIRECT_URL,
+    );
+  }
 
   async signInWithGoogle(
     user: IGoogleUser,
     res: Response,
+    code: string,
   ): Promise<{
     encodedUser?: string;
     error?: string;
@@ -35,15 +44,12 @@ export class AuthService {
       });
       if (!existingUser) return this.registerGoogleUser(res, user);
       const { accessToken, ...existingUser2 } = existingUser;
-      const encryptedAccessToken = user.accessToken;
-      console.log('what is the accessToken ', accessToken);
-
       await prisma.user.update({
         where: {
           email: user.email,
         },
         data: {
-          accessToken: encryptedAccessToken,
+          accessToken: user.accessToken,
         },
       });
       const encodedUser = this.encodeUserDataAsJwt({
@@ -54,7 +60,10 @@ export class AuthService {
         encodedUser,
       };
     } catch (error) {
-      console.log('what is this error exactly ', error);
+      console.log(
+        'what is this error exactly ',
+        JSON.stringify(error, null, 2),
+      );
       return {
         error: 'some error occured, please try again later',
       };

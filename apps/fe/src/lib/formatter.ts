@@ -17,6 +17,19 @@ export function formatTimezoneOffset(timezone: string) {
     .find((part) => part.type == "timeZoneName")?.value;
 }
 
+export function generateTimeOptions(): string[] {
+  const options: string[] = [];
+  for (let hour = 0; hour < 24; hour++) {
+    for (let minute = 0; minute < 60; minute += 15) {
+      const time = new Date(2000, 0, 1, hour, minute);
+      options.push(time.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: false }));
+    }
+  }
+  console.log("options ", options);
+
+  return options;
+}
+
 const dateFormatter = new Intl.DateTimeFormat(undefined, {
   dateStyle: "medium",
 });

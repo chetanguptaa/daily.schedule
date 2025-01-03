@@ -1,11 +1,11 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import {
+  DayOfWeek,
   ICreateUserScheduleSlotType,
   ICreateUserScheduleType,
   IDeleteUserSchedule,
 } from './dto';
 import prisma from '@repo/database';
-import { timeToInt } from 'src/utils/formatter';
 
 @Injectable()
 export class CalenderService {
@@ -17,16 +17,12 @@ export class CalenderService {
         userId,
       },
       include: {
-        availabilities: {
-          include: {
-            timeSlots: true,
-          },
-        },
+        availabilities: true,
       },
     });
     return userSchedules.map((us) => ({
       id: us.id,
-      availability: this.formatAvailability(us.availabilities),
+      availability: us.availabilities,
       timezone: us.timezone,
       title: us.title,
       default: us.default,
@@ -94,39 +90,16 @@ export class CalenderService {
           scheduleId: data.scheduleId,
         },
       });
-      for (const [day, daySlots] of Object.entries(data.slots)) {
-        console.log('whats up ', day, daySlots);
-
-        if (daySlots.length > 0) {
-          const availability = await prismaTransaction.availability.create({
-            data: {
-              scheduleId: data.scheduleId,
-              dayOfWeek: parseInt(day, 10),
-            },
-            select: { id: true },
-          });
-          const availabilityId = availability.id;
-          if (availabilityId) {
-            const timeSlotsData = daySlots.map((slot) => {
-              if (timeToInt(slot.startTime) >= timeToInt(slot.endTime)) return;
-              return {
-                availabilityId,
-                startTime: slot.startTime,
-                endTime: slot.endTime,
-              };
-            });
-            console.log('what is the availability id ', availabilityId);
-            await prismaTransaction.timeSlot.deleteMany({
-              where: {
-                availabilityId,
-              },
-            });
-            await prismaTransaction.timeSlot.createMany({
-              data: timeSlotsData,
-            });
-          }
-        }
-      }
+      await prismaTransaction.availability.createMany({
+        data: data.availabilities.map((av) => {
+          return {
+            scheduleId: schedule.id,
+            dayOfWeek: av.dayOfWeek,
+            startTime: av.startTime,
+            endTime: av.endTime,
+          };
+        }),
+      });
     });
     return {
       message: 'Slots added successfully',
@@ -160,11 +133,7 @@ export class CalenderService {
         id: scheduleId,
       },
       include: {
-        availabilities: {
-          include: {
-            timeSlots: true,
-          },
-        },
+        availabilities: true,
       },
     });
     if (!schedule) {

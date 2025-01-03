@@ -33,6 +33,7 @@
     "csrf-csrf": "^3.0.8",
     "date-fns": "^4.1.0",
     "date-fns-tz": "^3.2.0",
+    "google-auth-library": "^9.15.0",
     "googleapis": "^144.0.0",
     "helmet": "^8.0.0",
     "luxon": "^3.5.0",

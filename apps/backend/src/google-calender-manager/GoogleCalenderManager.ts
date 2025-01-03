@@ -1,6 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import prisma from '@repo/database';
-import { endOfDay, startOfDay } from 'date-fns';
+import { addMinutes, endOfDay, startOfDay } from 'date-fns';
 import { google } from 'googleapis';
 
 class GoogleCalenderManager {
@@ -56,7 +56,7 @@ class GoogleCalenderManager {
     );
   }
 
-  private async getOAuthClient(userId: string) {
+  async getOAuthClient(userId: string) {
     const user = await prisma.user.findFirst({
       where: {
         id: userId,
@@ -70,10 +70,75 @@ class GoogleCalenderManager {
       this.GOOGLE_OAUTH_CLIENT_ID,
       this.GOOGLE_OAUTH_CLIENT_SECRET,
     );
-    console.log('acces token is this ', user.accessToken);
-
     client.setCredentials({ access_token: user.accessToken });
     return client;
+  }
+
+  async getOAuthTokens(code: string) {
+    console.log('code is this ', code);
+    // TODO
+  }
+
+  async createCalendarEvent({
+    userId,
+    guestName,
+    guestEmail,
+    startTime,
+    guestNotes,
+    durationInMinutes,
+    eventName,
+    platform,
+  }: {
+    userId?: string;
+    guestName?: string;
+    guestEmail?: string;
+    startTime?: Date;
+    guestNotes?: string | null;
+    durationInMinutes?: number;
+    eventName?: string;
+    platform?: string;
+  }) {
+    const oAuthClient = await this.getOAuthClient(userId);
+    const user = await prisma.user.findFirst({
+      where: {
+        id: userId,
+      },
+    });
+    const calendarEvent = await google.calendar('v3').events.insert({
+      calendarId: 'primary',
+      auth: oAuthClient,
+      sendUpdates: 'all',
+      requestBody: {
+        attendees: [
+          { email: guestEmail, displayName: guestName },
+          {
+            email: user.email,
+            displayName: user.name,
+            responseStatus: 'accepted',
+          },
+        ],
+        description: guestNotes
+          ? `Additional Details: ${guestNotes}`
+          : undefined,
+        start: {
+          dateTime: startTime.toISOString(),
+        },
+        end: {
+          dateTime: addMinutes(startTime, durationInMinutes).toISOString(),
+        },
+        summary: `${guestName} + ${user.name}: ${eventName}`,
+        conferenceData: {
+          createRequest: {
+            requestId: 'meet-' + Math.random().toString(36).substring(7),
+            conferenceSolutionKey: {
+              type: 'hangoutsMeet',
+            },
+          },
+        },
+      },
+      conferenceDataVersion: 1,
+    });
+    return calendarEvent.data;
   }
 }
 

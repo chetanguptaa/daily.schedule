@@ -106,7 +106,19 @@ export default function Availability() {
       : <div className="border-subtle bg-default overflow-hidden rounded-md border mt-8">
           <ul className="divide-subtle divide-y relative">
             {data.map(
-              (s: { id: string; availability: string[]; title: string; timezone: string; default: boolean }) => (
+              (s: {
+                id: string;
+                availability: {
+                  id: string;
+                  scheduleId: string;
+                  dayOfWeek: string;
+                  startTime: string;
+                  endTime: string;
+                }[];
+                title: string;
+                timezone: string;
+                default: boolean;
+              }) => (
                 <li>
                   <div className="hover:bg-muted flex items-center justify-between py-5 transition ltr:pl-4 rtl:pr-4 sm:ltr:pl-0 sm:rtl:pr-0">
                     <div className="group flex w-full items-center justify-between sm:px-6">
@@ -120,12 +132,6 @@ export default function Availability() {
                           )}
                         </div>
                         <p className="text-gray-500 mt-1">
-                          {s.availability.map((av) => (
-                            <>
-                              {av}
-                              <br />
-                            </>
-                          ))}
                           <p className="my-1 flex items-center first-letter:text-xs">
                             <Globe className="w-4 h-4" />
                             &nbsp;{s.timezone}

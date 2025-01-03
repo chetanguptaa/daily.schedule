@@ -19,6 +19,8 @@ export class GoogleStrategy extends PassportStrategy(
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
       callbackURL: process.env.GOOGLE_REDIRECT_URL,
       scope: ['email', 'profile', 'https://www.googleapis.com/auth/calendar'],
+      accessType: 'offline',
+      prompt: 'consent',
     });
   }
   async validate(
@@ -28,6 +30,8 @@ export class GoogleStrategy extends PassportStrategy(
     done: VerifyCallback,
   ): Promise<any> {
     try {
+      console.log('am i getting the refresh token ', refreshToken);
+
       const { name, emails, photos } = profile;
       const user: IGoogleUser = {
         email: emails[0].value,
@@ -38,7 +42,7 @@ export class GoogleStrategy extends PassportStrategy(
       };
       done(null, user);
     } catch (error) {
-      Logger.error(error);
+      Logger.error(JSON.stringify(error, null, 2));
       const internalError = new InternalServerErrorException();
       done(internalError);
       throw internalError;
