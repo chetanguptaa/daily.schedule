@@ -20,7 +20,7 @@ import {
   setMinutes,
 } from 'date-fns';
 import { googleCalenderManager } from 'src/google-calender-manager/GoogleCalenderManager';
-import { fromZonedTime } from 'date-fns-tz';
+import { format, fromZonedTime, toZonedTime } from 'date-fns-tz';
 
 @Injectable()
 export class SlotsService {
@@ -89,14 +89,54 @@ export class SlotsService {
       [startInTimezone],
       event,
     );
-    if (validTimes.length === 0) return { error: true };
-    await googleCalenderManager.createCalendarEvent({
+    if (validTimes.length === 0) {
+      throw new BadRequestException('Slot already booked!!!');
+    }
+    const res = await googleCalenderManager.createCalendarEvent({
       ...data,
       startTime: startInTimezone,
       durationInMinutes: event.duration,
       eventName: event.title,
       platform: event.platformId,
+      timezone: data.timezone,
     });
+    const dayInfo = this.getDayInfo(
+      data.timezone,
+      data.startTime,
+      event.duration,
+    );
+    const booking = await prisma.booking.create({
+      data: {
+        eventId: event.id,
+        guestName: data.guestName,
+        guestEmail: data.guestEmail,
+        startTime: dayInfo.startTime,
+        endTime: dayInfo.endTime,
+        meetingDate: data.startTime,
+        // @ts-expect-error TODO -> we'll look into it
+        dayOfWeek: dayInfo.dayOfWeek,
+        meetingLink: res.hangoutLink,
+      },
+    });
+    if (booking.id) {
+      return {
+        success: true,
+        message: 'Meeting booked successfully',
+      };
+    }
+  }
+
+  private getDayInfo(timezone: string, date: string | Date, duration: number) {
+    const dateObj = new Date(date);
+    const zonedStartTime = toZonedTime(dateObj, timezone);
+    const zonedEndTime = addMinutes(zonedStartTime, duration);
+    return {
+      dayOfWeek: format(zonedStartTime, 'EEEE', {
+        timeZone: timezone,
+      }).toUpperCase(),
+      startTime: format(zonedStartTime, 'HH:mm', { timeZone: timezone }),
+      endTime: format(zonedEndTime, 'HH:mm', { timeZone: timezone }),
+    };
   }
 
   private async getValidTimesFromSchedule(

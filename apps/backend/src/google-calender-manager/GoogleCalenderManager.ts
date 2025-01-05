@@ -92,6 +92,7 @@ class GoogleCalenderManager {
     durationInMinutes,
     eventName,
     platform,
+    timezone,
   }: {
     userId?: string;
     guestName?: string;
@@ -101,48 +102,56 @@ class GoogleCalenderManager {
     durationInMinutes?: number;
     eventName?: string;
     platform?: string;
+    timezone: string;
   }) {
-    const oAuthClient = await this.getOAuthClient(userId);
-    const user = await prisma.user.findFirst({
-      where: {
-        id: userId,
-      },
-    });
-    const calendarEvent = await google.calendar('v3').events.insert({
-      calendarId: 'primary',
-      auth: oAuthClient,
-      sendUpdates: 'all',
-      requestBody: {
-        attendees: [
-          { email: guestEmail, displayName: guestName },
-          {
-            email: user.email,
-            displayName: user.name,
-            responseStatus: 'accepted',
+    try {
+      const oAuthClient = await this.getOAuthClient(userId);
+      const user = await prisma.user.findFirst({
+        where: {
+          id: userId,
+        },
+      });
+      const calendarEvent = await google.calendar('v3').events.insert({
+        calendarId: 'primary',
+        auth: oAuthClient,
+        sendUpdates: 'all',
+        requestBody: {
+          attendees: [
+            { email: guestEmail, displayName: guestName },
+            {
+              email: user.email,
+              displayName: user.name,
+              responseStatus: 'accepted',
+            },
+          ],
+          description: guestNotes
+            ? `Additional Details: ${guestNotes}`
+            : undefined,
+          start: {
+            dateTime: startTime.toISOString(),
+            timeZone: timezone,
           },
-        ],
-        description: guestNotes
-          ? `Additional Details: ${guestNotes}`
-          : undefined,
-        start: {
-          dateTime: startTime.toISOString(),
-        },
-        end: {
-          dateTime: addMinutes(startTime, durationInMinutes).toISOString(),
-        },
-        summary: `${guestName} + ${user.name}: ${eventName}`,
-        conferenceData: {
-          createRequest: {
-            requestId: 'meet-' + Math.random().toString(36).substring(7),
-            conferenceSolutionKey: {
-              type: 'hangoutsMeet',
+          end: {
+            dateTime: addMinutes(startTime, durationInMinutes).toISOString(),
+            timeZone: timezone,
+          },
+          summary: `${guestName} + ${user.name}: ${eventName}`,
+          conferenceData: {
+            createRequest: {
+              requestId: 'meet-' + Math.random().toString(36).substring(7),
+              conferenceSolutionKey: {
+                type: 'hangoutsMeet',
+              },
             },
           },
         },
-      },
-      conferenceDataVersion: 1,
-    });
-    return calendarEvent.data;
+        conferenceDataVersion: 1,
+      });
+      return calendarEvent.data;
+    } catch (error) {
+      console.log('error ', JSON.stringify(error, null, 2));
+      throw error;
+    }
   }
 
   private async getAccessTokenFromRefreshToken(user: {

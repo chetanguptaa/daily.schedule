@@ -60,6 +60,7 @@ export function MeetingForm({ validTimes, eventId, userId }: { validTimes: Date[
         eventId,
         userId,
       });
+      form.reset();
       toast("Schedule booked successfully");
     } catch (error) {
       console.log(error);
@@ -102,7 +103,7 @@ export function MeetingForm({ validTimes, eventId, userId }: { validTimes: Date[
             </FormItem>
           )}
         />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 items-center gap-6">
           <FormField
             control={form.control}
             name="date"
@@ -144,7 +145,7 @@ export function MeetingForm({ validTimes, eventId, userId }: { validTimes: Date[
             control={form.control}
             name="startTime"
             render={({ field }) => (
-              <FormItem>
+              <FormItem className="flex flex-col">
                 <FormLabel className="text-sm font-medium text-gray-700">Time</FormLabel>
                 <Select
                   disabled={date == null || timezone == null}

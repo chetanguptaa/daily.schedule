@@ -9,6 +9,7 @@ import EventTypes from "./pages/event-types/EventTypes";
 import AddSlots from "./pages/availability/add-slots/AddSlots";
 import EditEvents from "./pages/event-types/edit-events/edit-events";
 import BookEvent from "./pages/app/book-event/BookEvent";
+import CallPage from "./pages/app/call/call";
 
 function App() {
   return (
@@ -55,6 +56,7 @@ function App() {
           }
         />
         <Route path="/:userId/:eventLink" element={<BookEvent />} />
+        <Route path="/video/:bookingId" element={<CallPage />} />
         <Route path="/" element={<Landing />} />
         <Route path="/auth/redirect" element={<Redirect />} />
         <Route path="/auth/signin" element={<Signin />} />

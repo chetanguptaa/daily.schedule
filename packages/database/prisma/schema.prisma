@@ -91,13 +91,18 @@ model Event {
 }
 
 model Booking {
-  id        String        @id @default(uuid())
-  eventId   String
-  bookedBy  String
-  startTime String
-  date      DateTime
-  status    BookingStatus @default(PENDING)
-  event     Event         @relation(fields: [eventId], references: [id])
+  id          String        @id @default(uuid())
+  eventId     String
+  guestName   String
+  guestEmail  String
+  guestNotes  String?
+  dayOfWeek   DayOfWeek
+  startTime   String
+  endTime     String
+  meetingDate DateTime
+  meetingLink String
+  status      BookingStatus @default(PENDING)
+  event       Event         @relation(fields: [eventId], references: [id])
 }
 
 model ReservedSlot {
@@ -105,7 +110,8 @@ model ReservedSlot {
   eventId      String
   reservedBy   String
   startTime    String
-  date         DateTime
+  endTime      String
+  dayOfWeek    DayOfWeek
   status       ReservedSlotStatus @default(RESERVED)
   reservedTill DateTime
   event        Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)

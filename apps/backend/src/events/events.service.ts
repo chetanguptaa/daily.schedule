@@ -22,13 +22,13 @@ export class EventsService {
         default: true,
       },
     });
+    if (!schedule || !platform) throw new InternalServerErrorException();
     const event = await prisma.event.findFirst({
       where: {
         link: data.url,
         userId,
       },
     });
-    if (!schedule || !platform) throw new InternalServerErrorException();
     if (event) {
       throw new BadRequestException('Event with this link already exist');
     }

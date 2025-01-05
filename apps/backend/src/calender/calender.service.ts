@@ -1,6 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import {
-  DayOfWeek,
   ICreateUserScheduleSlotType,
   ICreateUserScheduleType,
   IDeleteUserSchedule,

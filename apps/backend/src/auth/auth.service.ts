@@ -64,20 +64,46 @@ export class AuthService {
   }
 
   private async registerGoogleUser(res: Response, user: IGoogleUser) {
-    const newUser = await prisma.user.create({
-      data: {
-        email: user.email,
-        name: user.name,
-        picture: user.picture,
-        accessToken: user.accessToken,
-        refreshToken: user.refreshToken,
-      },
-      select: {
-        email: true,
-        name: true,
-        id: true,
-        picture: true,
-      },
+    const newUser = await prisma.$transaction(async (prisma) => {
+      const newUser = await prisma.user.create({
+        data: {
+          email: user.email,
+          name: user.name,
+          picture: user.picture,
+          accessToken: user.accessToken,
+          refreshToken: user.refreshToken,
+        },
+        select: {
+          email: true,
+          name: true,
+          id: true,
+          picture: true,
+        },
+      });
+      const schedule = await prisma.schedule.create({
+        data: {
+          userId: newUser.id,
+          title: 'Working Hours 👨‍💼',
+          default: true,
+        },
+      });
+      const platform = await prisma.platform.findFirst({
+        where: {
+          default: true,
+        },
+      });
+      await prisma.event.create({
+        data: {
+          scheduleId: schedule.id,
+          userId: newUser.id,
+          platformId: platform.id,
+          title: '30 Minutes Meeting',
+          description: '',
+          duration: 30,
+          link: '30-mins-meeting',
+        },
+      });
+      return newUser;
     });
     const encodedUser = this.encodeUserDataAsJwt(newUser);
     this.setJwtTokenToCookies(res, newUser);
