@@ -35,14 +35,15 @@ enum DayOfWeek {
 }
 
 model User {
-  id          String     @id @default(uuid())
-  name        String
-  email       String     @unique
-  accessToken String?    @unique
-  picture     String
-  createdAt   DateTime   @default(now())
-  schedules   Schedule[]
-  events      Event[]
+  id           String     @id @default(uuid())
+  name         String
+  email        String     @unique
+  accessToken  String?    @unique
+  refreshToken String?    @unique
+  picture      String
+  createdAt    DateTime   @default(now())
+  schedules    Schedule[]
+  events       Event[]
 }
 
 model Schedule {

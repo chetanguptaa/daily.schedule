@@ -3,7 +3,6 @@ import {
   Get,
   HttpCode,
   HttpStatus,
-  Query,
   Req,
   Res,
   UseGuards,
@@ -13,7 +12,6 @@ import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { JwtGuard } from './guards/jwt-auth.guard';
 import { COOKIE_NAMES } from './constants/auth.constants';
-import { googleCalenderManager } from 'src/google-calender-manager/GoogleCalenderManager';
 
 @Controller('auth')
 export class AuthController {
@@ -25,16 +23,10 @@ export class AuthController {
 
   @UseGuards(UserGuard)
   @Get('google-auth-redirect')
-  async googleAuthRedirect(
-    @Req() req: Request,
-    @Res() res: Response,
-    @Query('code') code: string,
-  ) {
-    await googleCalenderManager.getOAuthTokens(code);
+  async googleAuthRedirect(@Req() req: Request, @Res() res: Response) {
     const { encodedUser } = await this.authService.signInWithGoogle(
       req.user,
       res,
-      code,
     );
     return res.redirect(
       `${process.env.GOOGLE_REDIRECT_URL_NEXT}?jwtUser=${encodedUser}`,

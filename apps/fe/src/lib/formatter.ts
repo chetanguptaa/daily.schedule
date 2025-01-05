@@ -25,8 +25,6 @@ export function generateTimeOptions(): string[] {
       options.push(time.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: false }));
     }
   }
-  console.log("options ", options);
-
   return options;
 }
 

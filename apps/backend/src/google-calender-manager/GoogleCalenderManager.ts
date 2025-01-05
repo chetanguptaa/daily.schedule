@@ -4,13 +4,8 @@ import { addMinutes, endOfDay, startOfDay } from 'date-fns';
 import { google } from 'googleapis';
 
 class GoogleCalenderManager {
-  private GOOGLE_OAUTH_CLIENT_ID: string;
-  private GOOGLE_OAUTH_CLIENT_SECRET: string;
   private static instance: GoogleCalenderManager;
-  private constructor() {
-    this.GOOGLE_OAUTH_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-    this.GOOGLE_OAUTH_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-  }
+  private constructor() {}
 
   public static getInstance(): GoogleCalenderManager {
     if (!GoogleCalenderManager.instance) {
@@ -20,10 +15,10 @@ class GoogleCalenderManager {
   }
 
   async getCalendarEventTimes(
-    clerkUserId: string,
+    userId: string,
     { start, end }: { start: Date; end: Date },
   ) {
-    const oAuthClient = await this.getOAuthClient(clerkUserId);
+    const oAuthClient = await this.getOAuthClient(userId);
 
     const events = await google.calendar('v3').events.list({
       calendarId: 'primary',
@@ -57,26 +52,35 @@ class GoogleCalenderManager {
   }
 
   async getOAuthClient(userId: string) {
+    const GOOGLE_OAUTH_CLIENT_ID: string = process.env.GOOGLE_CLIENT_ID;
+    const GOOGLE_OAUTH_CLIENT_SECRET: string = process.env.GOOGLE_CLIENT_SECRET;
     const user = await prisma.user.findFirst({
       where: {
         id: userId,
       },
-      select: {
-        accessToken: true,
-      },
     });
-    if (!user || !user.accessToken) throw new BadRequestException();
+    if (!user || !user.accessToken || !user.refreshToken) {
+      throw new BadRequestException('User not found or tokens are missing.');
+    }
+    const isValidAccessToken = await this.isAccessTokenValid(user.accessToken);
+    let accessToken = user.accessToken;
+    if (!isValidAccessToken) {
+      accessToken = await this.getAccessTokenFromRefreshToken(user);
+      await prisma.user.update({
+        where: {
+          id: userId,
+        },
+        data: {
+          accessToken,
+        },
+      });
+    }
     const client = new google.auth.OAuth2(
-      this.GOOGLE_OAUTH_CLIENT_ID,
-      this.GOOGLE_OAUTH_CLIENT_SECRET,
+      GOOGLE_OAUTH_CLIENT_ID,
+      GOOGLE_OAUTH_CLIENT_SECRET,
     );
-    client.setCredentials({ access_token: user.accessToken });
+    client.setCredentials({ access_token: accessToken });
     return client;
-  }
-
-  async getOAuthTokens(code: string) {
-    console.log('code is this ', code);
-    // TODO
   }
 
   async createCalendarEvent({
@@ -139,6 +143,69 @@ class GoogleCalenderManager {
       conferenceDataVersion: 1,
     });
     return calendarEvent.data;
+  }
+
+  private async getAccessTokenFromRefreshToken(user: {
+    id: string;
+    name: string;
+    email: string;
+    accessToken: string;
+    refreshToken: string;
+    picture: string;
+    createdAt: Date;
+  }): Promise<string> {
+    const GOOGLE_OAUTH_CLIENT_ID: string = process.env.GOOGLE_CLIENT_ID;
+    const GOOGLE_OAUTH_CLIENT_SECRET: string = process.env.GOOGLE_CLIENT_SECRET;
+    const refreshToken = user.refreshToken;
+    const GOOGLE_TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
+    try {
+      const payload = new URLSearchParams({
+        client_id: GOOGLE_OAUTH_CLIENT_ID,
+        client_secret: GOOGLE_OAUTH_CLIENT_SECRET,
+        refresh_token: refreshToken,
+        grant_type: 'refresh_token',
+      });
+      const response = await fetch(GOOGLE_TOKEN_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: payload.toString(),
+      });
+      if (!response.ok) {
+        const errorBody = await response.json();
+        console.error('Error response from Google:', errorBody);
+        throw new Error(
+          `Failed to refresh access token: ${errorBody.error_description || 'Unknown error'}`,
+        );
+      }
+      const data = await response.json();
+      const accessToken = data.access_token;
+      if (!accessToken) {
+        throw new Error('Access token not returned by Google');
+      }
+      return accessToken;
+    } catch (error) {
+      console.error('Failed to refresh access token:', error);
+      throw new Error('Failed to refresh access token');
+    }
+  }
+
+  private async isAccessTokenValid(accessToken: string): Promise<boolean> {
+    try {
+      const response = await fetch(
+        `https://oauth2.googleapis.com/tokeninfo?access_token=${accessToken}`,
+      );
+      if (!response.ok) {
+        const errorBody = await response.json();
+        console.error('Error validating access token:', errorBody);
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.error('Error during access token validation:', error);
+      return false;
+    }
   }
 }
 

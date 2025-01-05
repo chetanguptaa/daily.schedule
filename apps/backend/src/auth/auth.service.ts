@@ -7,7 +7,6 @@ import {
 } from './constants/auth.constants';
 import { CookieOptions, Response } from 'express';
 import prisma from '@repo/database';
-import { OAuth2Client } from 'google-auth-library';
 
 export interface IUser {
   id: string;
@@ -18,19 +17,11 @@ export interface IUser {
 
 @Injectable()
 export class AuthService {
-  private oAuth2Client: OAuth2Client;
-  constructor(private jwtService: JwtService) {
-    this.oAuth2Client = new OAuth2Client(
-      process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET,
-      process.env.GOOGLE_REDIRECT_URL,
-    );
-  }
+  constructor(private jwtService: JwtService) {}
 
   async signInWithGoogle(
     user: IGoogleUser,
     res: Response,
-    code: string,
   ): Promise<{
     encodedUser?: string;
     error?: string;
@@ -43,19 +34,21 @@ export class AuthService {
         },
       });
       if (!existingUser) return this.registerGoogleUser(res, user);
-      const { accessToken, ...existingUser2 } = existingUser;
+      existingUser.accessToken = undefined;
+      existingUser.refreshToken = undefined;
       await prisma.user.update({
         where: {
           email: user.email,
         },
         data: {
           accessToken: user.accessToken,
+          refreshToken: user.refreshToken,
         },
       });
       const encodedUser = this.encodeUserDataAsJwt({
-        ...existingUser2,
+        ...existingUser,
       });
-      this.setJwtTokenToCookies(res, existingUser2);
+      this.setJwtTokenToCookies(res, existingUser);
       return {
         encodedUser,
       };
@@ -71,13 +64,13 @@ export class AuthService {
   }
 
   private async registerGoogleUser(res: Response, user: IGoogleUser) {
-    const encryptedAccessToken = user.accessToken;
     const newUser = await prisma.user.create({
       data: {
         email: user.email,
         name: user.name,
         picture: user.picture,
-        accessToken: encryptedAccessToken,
+        accessToken: user.accessToken,
+        refreshToken: user.refreshToken,
       },
       select: {
         email: true,
