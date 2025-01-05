@@ -69,27 +69,31 @@ export function MeetingForm({ validTimes, eventId, userId }: { validTimes: Date[
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="flex gap-6 flex-col">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         {form.formState.errors.root && (
-          <div className="text-destructive text-sm">{form.formState.errors.root.message}</div>
+          <div className="text-red-500 text-sm bg-red-50 p-3 rounded-md">{form.formState.errors.root.message}</div>
         )}
         <FormField
           control={form.control}
           name="timezone"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Timezone</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <FormLabel className="text-sm font-medium text-gray-700">Timezone</FormLabel>
+              <Select
+                onValueChange={(value) => {
+                  field.onChange(value);
+                }}
+                defaultValue={field.value}
+              >
                 <FormControl>
-                  <SelectTrigger>
-                    <SelectValue />
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select your timezone" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
                   {Intl.supportedValuesOf("timeZone").map((timezone) => (
                     <SelectItem key={timezone} value={timezone}>
-                      {timezone}
-                      {` (${formatTimezoneOffset(timezone)})`}
+                      {timezone} {formatTimezoneOffset(timezone)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -98,14 +102,14 @@ export function MeetingForm({ validTimes, eventId, userId }: { validTimes: Date[
             </FormItem>
           )}
         />
-        <div className="flex gap-4 flex-col md:flex-row">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <FormField
             control={form.control}
             name="date"
             render={({ field }) => (
               <Popover>
-                <FormItem className="flex-1">
-                  <FormLabel>Date</FormLabel>
+                <FormItem className="flex flex-col">
+                  <FormLabel className="text-sm font-medium text-gray-700">Date</FormLabel>
                   <PopoverTrigger asChild>
                     <FormControl>
                       <Button
@@ -124,7 +128,9 @@ export function MeetingForm({ validTimes, eventId, userId }: { validTimes: Date[
                     <Calendar
                       mode="single"
                       selected={field.value}
-                      onSelect={field.onChange}
+                      onSelect={(value) => {
+                        field.onChange(value);
+                      }}
                       disabled={(date) => !validTimesInTimezone.some((time) => isSameDay(date, time))}
                       initialFocus
                     />
@@ -138,15 +144,15 @@ export function MeetingForm({ validTimes, eventId, userId }: { validTimes: Date[
             control={form.control}
             name="startTime"
             render={({ field }) => (
-              <FormItem className="flex-1">
-                <FormLabel>Time</FormLabel>
+              <FormItem>
+                <FormLabel className="text-sm font-medium text-gray-700">Time</FormLabel>
                 <Select
                   disabled={date == null || timezone == null}
                   onValueChange={(value) => field.onChange(new Date(Date.parse(value)))}
                   defaultValue={field.value?.toISOString()}
                 >
                   <FormControl>
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full">
                       <SelectValue
                         placeholder={
                           date == null || timezone == null ? "Select a date/timezone first" : "Select a meeting time"
@@ -164,21 +170,20 @@ export function MeetingForm({ validTimes, eventId, userId }: { validTimes: Date[
                       ))}
                   </SelectContent>
                 </Select>
-
                 <FormMessage />
               </FormItem>
             )}
           />
         </div>
-        <div className="flex gap-4 flex-col md:flex-row">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <FormField
             control={form.control}
             name="guestName"
             render={({ field }) => (
-              <FormItem className="flex-1">
-                <FormLabel>Your Name</FormLabel>
+              <FormItem>
+                <FormLabel className="text-sm font-medium text-gray-700">Your Name</FormLabel>
                 <FormControl>
-                  <Input {...field} />
+                  <Input {...field} className="w-full" />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -188,10 +193,10 @@ export function MeetingForm({ validTimes, eventId, userId }: { validTimes: Date[
             control={form.control}
             name="guestEmail"
             render={({ field }) => (
-              <FormItem className="flex-1">
-                <FormLabel>Your Email</FormLabel>
+              <FormItem>
+                <FormLabel className="text-sm font-medium text-gray-700">Your Email</FormLabel>
                 <FormControl>
-                  <Input type="email" {...field} />
+                  <Input type="email" {...field} className="w-full" />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -203,18 +208,25 @@ export function MeetingForm({ validTimes, eventId, userId }: { validTimes: Date[
           name="guestNotes"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Notes</FormLabel>
+              <FormLabel className="text-sm font-medium text-gray-700">Notes</FormLabel>
               <FormControl>
-                <Textarea className="resize-none" {...field} />
+                <Textarea
+                  {...field}
+                  className="w-full resize-none h-24"
+                  placeholder="Any additional information or questions..."
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-
-        <div className="flex gap-2 justify-end">
-          <Button disabled={form.formState.isSubmitting} type="submit">
-            Schedule
+        <div className="flex justify-end">
+          <Button
+            type="submit"
+            disabled={form.formState.isSubmitting}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-md transition-colors duration-300"
+          >
+            {form.formState.isSubmitting ? "Scheduling..." : "Schedule Meeting"}
           </Button>
         </div>
       </form>
