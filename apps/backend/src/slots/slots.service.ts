@@ -67,6 +67,8 @@ export class SlotsService {
           event,
         ),
         id: event.id,
+        title: event.title,
+        duration: event.duration,
       },
       platform: {
         name: event.platform.name,

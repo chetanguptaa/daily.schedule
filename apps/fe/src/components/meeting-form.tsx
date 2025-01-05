@@ -153,11 +153,7 @@ export function MeetingForm({ validTimes, eventId, userId }: { validTimes: Date[
                 >
                   <FormControl>
                     <SelectTrigger className="w-full">
-                      <SelectValue
-                        placeholder={
-                          date == null || timezone == null ? "Select a date/timezone first" : "Select a meeting time"
-                        }
-                      />
+                      <SelectValue placeholder="Select a Time" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
@@ -183,7 +179,7 @@ export function MeetingForm({ validTimes, eventId, userId }: { validTimes: Date[
               <FormItem>
                 <FormLabel className="text-sm font-medium text-gray-700">Your Name</FormLabel>
                 <FormControl>
-                  <Input {...field} className="w-full" />
+                  <Input {...field} placeholder="John Doe" className="w-full" />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -196,7 +192,7 @@ export function MeetingForm({ validTimes, eventId, userId }: { validTimes: Date[
               <FormItem>
                 <FormLabel className="text-sm font-medium text-gray-700">Your Email</FormLabel>
                 <FormControl>
-                  <Input type="email" {...field} className="w-full" />
+                  <Input type="email" placeholder="joedoe@gmail.com" {...field} className="w-full" />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -224,7 +220,7 @@ export function MeetingForm({ validTimes, eventId, userId }: { validTimes: Date[
           <Button
             type="submit"
             disabled={form.formState.isSubmitting}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-md transition-colors duration-300"
+            className="text-white font-semibold py-2 px-4 rounded-md transition-colors duration-300"
           >
             {form.formState.isSubmitting ? "Scheduling..." : "Schedule Meeting"}
           </Button>
