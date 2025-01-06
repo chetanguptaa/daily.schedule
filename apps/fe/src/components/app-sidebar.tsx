@@ -1,4 +1,4 @@
-import { Calendar, Clock, Link, LogOut, User } from "lucide-react";
+import { Calendar, Clock, Link as LinkIcon, LogOut, User } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -22,12 +22,14 @@ import { Button } from "./ui/button";
 import { useRecoilValue } from "recoil";
 import userAtom from "@/store/atoms/userAtom";
 import LogoutBtn from "./logout-btn";
+import { useState } from "react";
+import { Link } from "react-router";
 
 const items = [
   {
     title: "Event Types",
     url: "/event-types",
-    icon: Link,
+    icon: LinkIcon,
   },
   {
     title: "Bookings",
@@ -42,6 +44,7 @@ const items = [
 ];
 
 export function AppSidebar() {
+  const [selectedTab, setSelectedTab] = useState(0);
   return (
     <Sidebar collapsible="none" className="min-w-36 max-h-[100vh] h-[100vh] hidden sm:flex max-w-48">
       <SidebarContent>
@@ -49,13 +52,17 @@ export function AppSidebar() {
           <SidebarGroupLabel>daily.schedule</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {items.map((item) => (
+              {items.map((item, i) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
-                    <a href={item.url}>
+                    <Link
+                      to={item.url}
+                      onClick={() => setSelectedTab(i)}
+                      className={selectedTab === i ? "bg-black text-white hover:text-white hover:bg-black" : ""}
+                    >
                       <item.icon />
                       <span>{item.title}</span>
-                    </a>
+                    </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
