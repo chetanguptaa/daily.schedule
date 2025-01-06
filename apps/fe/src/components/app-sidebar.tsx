@@ -1,4 +1,4 @@
-import { Calendar, Home, Inbox, LogOut, User } from "lucide-react";
+import { Calendar, Clock, Link, LogOut, User } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -25,19 +25,19 @@ import LogoutBtn from "./logout-btn";
 
 const items = [
   {
-    title: "Home",
-    url: "/dashboard",
-    icon: Home,
+    title: "Event Types",
+    url: "/event-types",
+    icon: Link,
+  },
+  {
+    title: "Bookings",
+    url: "/bookings",
+    icon: Calendar,
   },
   {
     title: "Availabilty",
     url: "/availability",
-    icon: Inbox,
-  },
-  {
-    title: "Event Types",
-    url: "/event-types",
-    icon: Calendar,
+    icon: Clock,
   },
 ];
 

@@ -1,3 +1,4 @@
+import Loading from "@/components/loading";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -191,7 +192,9 @@ export default function EventTypes() {
           </AlertDialog>
         </div>
         {isLoading ?
-          <>Loading...</>
+          <div className="flex justify-center items-center w-full h-[100vh]">
+            <Loading />
+          </div>
         : <div className="border-subtle bg-default overflow-hidden rounded-md border mt-8">
             <ul className="divide-subtle divide-y relative">
               {data.map((s: { id: string; title: string; description: string; duration: string; link: string }) => (

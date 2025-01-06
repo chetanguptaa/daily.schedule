@@ -10,6 +10,7 @@ import AddSlots from "./pages/availability/add-slots/AddSlots";
 import EditEvents from "./pages/event-types/edit-events/edit-events";
 import BookEvent from "./pages/app/book-event/BookEvent";
 import CallPage from "./pages/app/call/call";
+import Booking from "./pages/booking/Booking";
 
 function App() {
   return (
@@ -20,6 +21,14 @@ function App() {
           element={
             <RootLayout>
               <Dashboard />
+            </RootLayout>
+          }
+        />
+        <Route
+          path="/bookings"
+          element={
+            <RootLayout>
+              <Booking />
             </RootLayout>
           }
         />
