@@ -4,6 +4,7 @@ import { useParams } from "react-router";
 import { useQuery } from "react-query";
 import { AddSlotsForm } from "@/components/add-slots-form";
 import Loading from "@/components/loading";
+import RootLayout from "@/layout/root-layout";
 
 async function getSlots(id: string) {
   const res = await axios.get(BACKEND_URL + "/calender/schedules/" + id + "/slots", {
@@ -23,6 +24,10 @@ export default function AddSlots() {
     );
   if (isError) return <>Some error occured</>;
   if (data) {
-    return <AddSlotsForm schedule={data} />;
+    return (
+      <RootLayout>
+        <AddSlotsForm schedule={data} />;
+      </RootLayout>
+    );
   }
 }

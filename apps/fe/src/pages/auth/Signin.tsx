@@ -1,8 +1,14 @@
 import { useQuery } from "react-query";
 import { useNavigate } from "react-router";
-import { isLoggedIn } from "../../fns/is-logged-in";
 import Loading from "../../components/loading";
 import { BACKEND_URL } from "../../constants";
+import axios from "axios";
+
+async function isLoggedIn() {
+  return await axios.get(BACKEND_URL + "/auth/is-logged-in", {
+    withCredentials: true,
+  });
+}
 
 export default function Signin() {
   const navigate = useNavigate();

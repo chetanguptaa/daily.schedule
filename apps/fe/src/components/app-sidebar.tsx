@@ -22,8 +22,8 @@ import { Button } from "./ui/button";
 import { useRecoilValue } from "recoil";
 import userAtom from "@/store/atoms/userAtom";
 import LogoutBtn from "./logout-btn";
-import { useState } from "react";
-import { Link } from "react-router";
+import { useEffect, useState } from "react";
+import { Link, useLocation } from "react-router";
 
 const items = [
   {
@@ -45,6 +45,19 @@ const items = [
 
 export function AppSidebar() {
   const [selectedTab, setSelectedTab] = useState(0);
+  const location = useLocation();
+  useEffect(() => {
+    console.log(location.pathname);
+    if (location.pathname.startsWith("/availability")) {
+      setSelectedTab(2);
+    }
+    if (location.pathname.startsWith("/bookings")) {
+      setSelectedTab(1);
+    }
+    if (location.pathname.startsWith("/event-types")) {
+      setSelectedTab(0);
+    }
+  }, [location.pathname]);
   return (
     <Sidebar collapsible="none" className="min-w-36 max-h-[100vh] h-[100vh] hidden sm:flex max-w-48">
       <SidebarContent>
@@ -54,11 +67,14 @@ export function AppSidebar() {
             <SidebarMenu>
               {items.map((item, i) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
+                  <SidebarMenuButton
+                    asChild
+                    className={selectedTab === i ? "bg-black text-white hover:text-white  hover:bg-black" : ""}
+                  >
                     <Link
                       to={item.url}
                       onClick={() => setSelectedTab(i)}
-                      className={selectedTab === i ? "bg-black text-white hover:text-white hover:bg-black" : ""}
+                      className={selectedTab === i ? "bg-black text-white  hover:bg-black" : ""}
                     >
                       <item.icon />
                       <span>{item.title}</span>
