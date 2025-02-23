@@ -103,6 +103,7 @@ model Booking {
   meetingLink String
   status      BookingStatus @default(PENDING)
   event       Event         @relation(fields: [eventId], references: [id])
+  joinedCall  String[]
 }
 
 model ReservedSlot {

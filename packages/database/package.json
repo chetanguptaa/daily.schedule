@@ -12,9 +12,10 @@
   "license": "ISC",
   "devDependencies": {
     "@repo/typescript-config": "workspace:*",
-    "@types/node": "^22.10.2"
+    "@types/node": "^22.10.2",
+    "prisma": "6.4.1"
   },
   "dependencies": {
-    "@prisma/client": "^6.1.0"
+    "@prisma/client": "^6.4.1"
   }
 }

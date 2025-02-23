@@ -1,10 +1,9 @@
 import WebSocket from "ws";
 import { createWorker } from "./worker";
 
-let mediasoupRouter;
-
 const WebSocketConnection = async (websocket: WebSocket.Server) => {
   try {
+    let mediasoupRouter;
     mediasoupRouter = await createWorker();
   } catch (error) {
     throw error;

@@ -20,3 +20,9 @@ export const updateEventSchema = z.object({
 });
 
 export type IUpdateEvent = z.infer<typeof updateEventSchema>;
+
+export const addUserToCall = z.object({
+  username: z.string().min(1),
+});
+
+export type IAddUserToMeeting = z.infer<typeof addUserToCall>;

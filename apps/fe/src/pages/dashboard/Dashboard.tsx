@@ -6,7 +6,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   useEffect(() => {
     navigate("/event-types");
-  }, []);
+  }, [navigate]);
   return (
     <RootLayout>
       <></>

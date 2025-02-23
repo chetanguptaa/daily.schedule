@@ -3,7 +3,7 @@ import {
   Injectable,
   InternalServerErrorException,
 } from '@nestjs/common';
-import { ICreateEvent, IUpdateEvent } from './dto';
+import { IAddUserToMeeting, ICreateEvent, IUpdateEvent } from './dto';
 import prisma from '@repo/database';
 
 @Injectable()
@@ -115,5 +115,43 @@ export class EventsService {
         message: 'Event updated successfully',
       };
     }
+  }
+
+  async getBookingDetails(bookingId: string) {
+    const booking = await prisma.booking.findUnique({
+      where: {
+        id: bookingId,
+      },
+      select: {
+        event: {
+          select: {
+            id: true,
+            platform: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!booking) throw new BadRequestException('Booking not found');
+    if (booking.event.platform.name !== 'daily.schedule (Global)') {
+      throw new BadRequestException('This booking is not for Daily Schedule');
+    }
+    return booking;
+  }
+
+  async addUnauthenticatedUserToMeeting(id: string, data: IAddUserToMeeting) {
+    await prisma.booking.update({
+      where: {
+        id,
+      },
+      data: {
+        joinedCall: {
+          push: data.username,
+        },
+      },
+    });
   }
 }

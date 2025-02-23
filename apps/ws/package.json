@@ -4,7 +4,8 @@
   "description": "",
   "main": "dist/index.js",
   "scripts": {
-    "start": "tsc -b && node dist/index.js"
+    "start": "tsc -b && node dist/index.js",
+    "dev": "DEBUG=mediasoup:* ts-node src"
   },
   "keywords": [],
   "author": "",
@@ -16,6 +17,7 @@
   },
   "devDependencies": {
     "@types/express": "^4.17.17",
-    "@types/ws": "^8.5.12"
+    "@types/ws": "^8.5.12",
+    "ts-node": "^10.9.1"
   }
 }
