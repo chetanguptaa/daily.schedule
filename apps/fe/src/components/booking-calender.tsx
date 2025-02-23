@@ -5,6 +5,7 @@ import { useQuery } from "react-query";
 import { MeetingForm } from "./meeting-form";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Monitor } from "lucide-react";
+import Loading from "./loading";
 
 async function getSlotsDetails(userId: string, link: string) {
   const res = await axios.get(BACKEND_URL + "/slots/" + userId + "/" + link, {
@@ -17,7 +18,13 @@ export default function BookingCalendar({ userId, link }: { userId: string; link
   const { data, isLoading, isError } = useQuery(["getSlotsDetails"], () => {
     return getSlotsDetails(userId, link);
   });
-
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center w-full h-screen">
+        <Loading />
+      </div>
+    );
+  }
   if (data && data.event && data.event.validTimes.length > 0 && !isLoading && !isError) {
     return (
       <>

@@ -11,7 +11,7 @@ async function getApplicationInstance(): Promise<INestApplication<any>> {
   const configService: ConfigService = app.get(ConfigService);
   if (configService.get('NODE_ENV') !== 'production') {
     app.enableCors({
-      origin: 'http://localhost:5173',
+      origin: ['http://localhost:5173'],
       credentials: true,
     });
   } else {

@@ -45,7 +45,7 @@ export function AddSlotsForm({
     defaultValues: {
       timezone: schedule?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
       availabilities:
-        schedule?.availabilities.toSorted((a, b) => {
+        schedule?.availabilities.sort((a, b) => {
           return timeToInt(a.startTime) - timeToInt(b.startTime);
         }) ?? [],
     },
@@ -58,7 +58,22 @@ export function AddSlotsForm({
     replace: replaceAvailabilities,
   } = useFieldArray({ name: "availabilities", control: form.control });
 
-  const groupedAvailabilityFields = Object.groupBy(
+  //@ts-nocheck
+  function groupBy<T, K extends keyof any>(array: T[], keyGetter: (item: T) => K): Record<K, T[]> {
+    return array.reduce(
+      (result, currentItem) => {
+        const key = keyGetter(currentItem);
+        if (!result[key]) {
+          result[key] = [];
+        }
+        result[key].push(currentItem);
+        return result;
+      },
+      {} as Record<K, T[]>
+    );
+  }
+
+  const groupedAvailabilityFields = groupBy(
     availabilityFields.map((field, index) => ({ ...field, index })),
     (availability) => availability.dayOfWeek
   );
