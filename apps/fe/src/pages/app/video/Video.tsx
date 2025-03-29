@@ -9,12 +9,13 @@ import AppLayout from "@/layout/app-layout";
 import queryClient from "@/lib/queryClient";
 import guestAtom from "@/store/atoms/guestAtom";
 import userAtom from "@/store/atoms/userAtom";
+import videoLibAtom from "@/store/atoms/videoLibAtom";
 import axios from "axios";
 import { Video, VideoOff, Mic, MicOff, Headphones, Volume2, Camera } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "react-query";
 import { useNavigate, useParams } from "react-router";
-import { useRecoilValue, useSetRecoilState } from "recoil";
+import { useRecoilState, useRecoilValue, useResetRecoilState } from "recoil";
 import { toast } from "sonner";
 
 async function getBookingDetails(bookingId: string) {
@@ -33,16 +34,6 @@ async function addUnauthenticatedUserToTheMeeting(bookingId: string, username: s
   return res.data;
 }
 
-// TODO -> we'll do it later
-// async function checkIfUnauthenticatedNameAlreadyExistsInTheMeeting(bookingId: string, username: string) {
-//   const res = await axios.post(
-//     BACKEND_URL + "/events/bookings/" + bookingId + "/check-if-username-exists",
-//     { username },
-//     { withCredentials: true }
-//   );
-//   return res.data;
-// }
-
 export default function VideoPage() {
   const params = useParams();
   const navigate = useNavigate();
@@ -52,17 +43,16 @@ export default function VideoPage() {
   });
   const [videoEnabled, setVideoEnabled] = useState<boolean>(false);
   const [audioEnabled, setAudioEnabled] = useState<boolean>(false);
-  const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
-  const [microphones, setMicrophones] = useState<MediaDeviceInfo[]>([]);
-  const [speakers, setSpeakers] = useState<MediaDeviceInfo[]>([]);
-  const [selectedCamera, setSelectedCamera] = useState<string>("");
-  const [selectedMicrophone, setSelectedMicrophone] = useState<string>("");
-  const [selectedSpeaker, setSelectedSpeaker] = useState<string>("");
+  const [videoLib, setVideoLib] = useRecoilState(videoLibAtom);
+  const resetVideoLibState = useResetRecoilState(videoLibAtom);
+  const [selectedCamera, setSelectedCamera] = useState<string>("Please select a camera");
+  const [selectedMicrophone, setSelectedMicrophone] = useState<string>("Please select a microphone");
+  const [selectedSpeaker, setSelectedSpeaker] = useState<string>("Please select a speaker");
   const videoRef = useRef<HTMLVideoElement>(null);
   const [username, setUsername] = useState<string>("");
-  const [showAddUsernamePrompt, setShowAddUsernamePrompt] = useState<boolean>(false);
-  const setGuest = useSetRecoilState(guestAtom);
+  const [guest, setGuest] = useRecoilState(guestAtom);
   const user = useRecoilValue(userAtom);
+  const [showAddUsernamePrompt, setShowAddUsernamePrompt] = useState<boolean>(false);
   const addUnauthenticatedUserToTheMeetingMutation = useMutation(
     ({ bookingId, username }: { bookingId: string; username: string }) =>
       addUnauthenticatedUserToTheMeeting(bookingId, username),
@@ -70,6 +60,7 @@ export default function VideoPage() {
       onSuccess: () => {
         setShowAddUsernamePrompt(false);
         queryClient.invalidateQueries(["getBookingDetails"]);
+        localStorage.setItem("username", username)
         setGuest({
           guest: {
             username,
@@ -84,7 +75,7 @@ export default function VideoPage() {
       return;
     }
     addUnauthenticatedUserToTheMeetingMutation.mutate({ bookingId, username });
-  };
+  }; 
   useEffect(() => {
     const getMediaDevices = async () => {
       try {
@@ -92,24 +83,25 @@ export default function VideoPage() {
         const videoDevices = devices.filter((device) => device.kind === "videoinput");
         const audioDevices = devices.filter((device) => device.kind === "audioinput");
         const outputDevices = devices.filter((device) => device.kind === "audiooutput");
-        setCameras(videoDevices);
-        setMicrophones(audioDevices);
-        setSpeakers(outputDevices);
-        if (videoDevices.length > 0) setSelectedCamera(videoDevices[0].deviceId);
-        if (audioDevices.length > 0) setSelectedMicrophone(audioDevices[0].deviceId);
-        if (outputDevices.length > 0) setSelectedSpeaker(outputDevices[0].deviceId);
+        setVideoLib({
+          ...videoLib,
+          cameras: videoDevices,
+          speakers: outputDevices,
+          microphones: audioDevices, 
+        });
+        if (videoDevices.length > 0) setSelectedCamera(videoDevices[0].deviceId)
+        if (audioDevices.length > 0) setSelectedSpeaker(audioDevices[0].deviceId);
+        if (outputDevices.length > 0) setSelectedMicrophone(outputDevices[0].deviceId);
       } catch (error) {
         console.error("Error fetching media devices:", error);
       }
     };
     getMediaDevices();
     return () => {
-      setCameras([]);
-      setMicrophones([]);
-      setSpeakers([]);
-      setSelectedCamera("");
-      setSelectedMicrophone("");
-      setSelectedSpeaker("");
+      resetVideoLibState();
+      setSelectedCamera("Please select a camera");
+      setSelectedMicrophone("Please select a microphone");
+      setSelectedSpeaker("Please select a speaker");
     };
   }, []);
   useEffect(() => {
@@ -143,13 +135,22 @@ export default function VideoPage() {
       navigate("/");
     }
   }, [error, isError, navigate]);
+  useEffect(() => {
+    if(user.isLoggedIn) {
+      setShowAddUsernamePrompt(false);
+    } else {
+      if(guest.guest?.username === "") {
+        setShowAddUsernamePrompt(true)
+      }
+    }
+  }, [guest.guest?.username, user.isLoggedIn]) 
   if (isLoading) {
     return (
       <div className="flex w-full justify-center items-center h-full min-h-screen">
         <Loading />
       </div>
     );
-  }
+  } 
   if (showAddUsernamePrompt) {
     return (
       <AppLayout>
@@ -187,7 +188,7 @@ export default function VideoPage() {
       </AppLayout>
     );
   }
-  if (selectedCamera.length !== 0 && selectedMicrophone.length !== 0 && selectedSpeaker.length !== 0) {
+  
     return (
       <AppLayout>
         <div className="flex w-full justify-center items-center h-full min-h-screen">
@@ -196,7 +197,9 @@ export default function VideoPage() {
               <div className="text-xl font-bold">daily.schedule</div>
               <div className="flex items-center gap-4">
                 <div className="text-lg">Are you ready to join?</div>
-                <Button variant="secondary" className="bg-white text-black hover:bg-gray-200">
+                <Button variant="secondary" className="bg-white text-black hover:bg-gray-200" onClick={() => {
+                  navigate(`/video/${bookingId}/call`)
+                }}>
                   Join
                 </Button>
               </div>
@@ -249,9 +252,9 @@ export default function VideoPage() {
                       <SelectValue placeholder="Select camera" />
                     </SelectTrigger>
                     <SelectContent>
-                      {cameras.map((camera) => (
-                        <SelectItem key={camera.deviceId} value={camera.deviceId}>
-                          {camera.label || "Unknown Camera"}
+                      {videoLib.cameras.map((camera) => (
+                        <SelectItem key={camera.deviceId} value={camera.deviceId || "Unknown camera"}>
+                          {camera.label || "Unknown camera"}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -269,8 +272,8 @@ export default function VideoPage() {
                       <SelectValue placeholder="Select microphone" />
                     </SelectTrigger>
                     <SelectContent>
-                      {microphones.map((microphone) => (
-                        <SelectItem key={microphone.deviceId} value={microphone.deviceId}>
+                      {videoLib.microphones.map((microphone) => (
+                        <SelectItem key={microphone.deviceId} value={microphone.deviceId || "unknown microphone"}>
                           {microphone.label || "Unknown microphone"}
                         </SelectItem>
                       ))}
@@ -284,14 +287,14 @@ export default function VideoPage() {
                       Speakers
                     </label>
                   </div>
-                  <Select value={selectedSpeaker} onValueChange={setSelectedSpeaker}>
+                  <Select value={selectedSpeaker} onValueChange={setSelectedSpeaker} >
                     <SelectTrigger className="w-full bg-zinc-900">
                       <SelectValue placeholder="Select speakers" />
                     </SelectTrigger>
                     <SelectContent>
-                      {speakers.map((speaker) => (
-                        <SelectItem key={speaker.deviceId} value={speaker.deviceId}>
-                          {speaker.label || "Unknown Speaker"}
+                      {videoLib.speakers.map((speaker) => (
+                        <SelectItem key={speaker.deviceId} value={speaker.deviceId || "Unknown speaker"}>
+                          {speaker.label || "Unknown speaker"}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -303,5 +306,5 @@ export default function VideoPage() {
         </div>
       </AppLayout>
     );
-  }
+  
 }

@@ -153,5 +153,8 @@ export class EventsService {
         },
       },
     });
+    return {
+      name: data.username,
+    };
   }
 }

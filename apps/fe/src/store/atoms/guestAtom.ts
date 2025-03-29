@@ -9,7 +9,9 @@ const guestAtom = atom<{
 }>({
   key: "guestAtom",
   default: {
-    guest: null,
+    guest: {
+      username: localStorage.getItem("username") || ""
+    },
   },
 });
 
