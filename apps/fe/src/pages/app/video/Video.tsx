@@ -38,21 +38,15 @@ export default function VideoPage() {
   const params = useParams();
   const navigate = useNavigate();
   const bookingId = params.bookingId;
-  const { isLoading, isError, error } = useQuery(["getBookingDetails"], () => {
-    return getBookingDetails(bookingId || "");
-  });
-  const [videoEnabled, setVideoEnabled] = useState<boolean>(false);
-  const [audioEnabled, setAudioEnabled] = useState<boolean>(false);
+  const { isLoading, isError, error } = useQuery(["getBookingDetails"], () => getBookingDetails(bookingId || ""));
   const [videoLib, setVideoLib] = useRecoilState(videoLibAtom);
   const resetVideoLibState = useResetRecoilState(videoLibAtom);
-  const [selectedCamera, setSelectedCamera] = useState<string>("Please select a camera");
-  const [selectedMicrophone, setSelectedMicrophone] = useState<string>("Please select a microphone");
-  const [selectedSpeaker, setSelectedSpeaker] = useState<string>("Please select a speaker");
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [username, setUsername] = useState<string>("");
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null); 
+  const [username, setUsername] = useState("");
   const [guest, setGuest] = useRecoilState(guestAtom);
   const user = useRecoilValue(userAtom);
-  const [showAddUsernamePrompt, setShowAddUsernamePrompt] = useState<boolean>(false);
+  const [showAddUsernamePrompt, setShowAddUsernamePrompt] = useState(false);
   const addUnauthenticatedUserToTheMeetingMutation = useMutation(
     ({ bookingId, username }: { bookingId: string; username: string }) =>
       addUnauthenticatedUserToTheMeeting(bookingId, username),
@@ -75,53 +69,65 @@ export default function VideoPage() {
       return;
     }
     addUnauthenticatedUserToTheMeetingMutation.mutate({ bookingId, username });
-  }; 
+  };
+
+  
+  const handleCloseCamera = () => {
+    if (mediaStreamRef.current) {
+      const videoTracks = mediaStreamRef.current.getVideoTracks();
+      videoTracks.forEach((track) => track.stop());
+    }
+  };
+
+  const handleCloseMicrophone = () => {
+    if (mediaStreamRef.current) {
+      const audioTracks = mediaStreamRef.current.getAudioTracks();
+      audioTracks.forEach((track) => track.stop());
+    }
+  };
+
   useEffect(() => {
     const getMediaDevices = async () => {
       try {
         const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoDevices = devices.filter((device) => device.kind === "videoinput");
-        const audioDevices = devices.filter((device) => device.kind === "audioinput");
-        const outputDevices = devices.filter((device) => device.kind === "audiooutput");
-        setVideoLib({
-          ...videoLib,
+        const videoDevices = devices.filter(device => device.kind === "videoinput");
+        const audioDevices = devices.filter(device => device.kind === "audioinput");
+        const outputDevices = devices.filter(device => device.kind === "audiooutput");
+        setVideoLib(prev => ({
+          ...prev,
           cameras: videoDevices,
           speakers: outputDevices,
-          microphones: audioDevices, 
-        });
-        if (videoDevices.length > 0) setSelectedCamera(videoDevices[0].deviceId)
-        if (audioDevices.length > 0) setSelectedSpeaker(audioDevices[0].deviceId);
-        if (outputDevices.length > 0) setSelectedMicrophone(outputDevices[0].deviceId);
+          microphones: audioDevices,
+        }));
       } catch (error) {
         console.error("Error fetching media devices:", error);
       }
     };
     getMediaDevices();
-    return () => {
-      resetVideoLibState();
-      setSelectedCamera("Please select a camera");
-      setSelectedMicrophone("Please select a microphone");
-      setSelectedSpeaker("Please select a speaker");
-    };
-  }, []);
+    return resetVideoLibState;
+  }, [resetVideoLibState]);
+
   useEffect(() => {
-    const getUserMedia = async () => {
-      if (videoEnabled || audioEnabled) {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({
-            video: videoEnabled ? { deviceId: selectedCamera } : false,
-            audio: audioEnabled ? { deviceId: selectedMicrophone } : false,
-          });
-          if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-          }
-        } catch (error) {
-          console.error("Error accessing media devices:", error);
-        }
+  const getUserMedia = async () => {
+    if (videoLib.camera || videoLib.microphone) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: videoLib.camera ? { deviceId: videoLib.camera.deviceId } : false,
+          audio: videoLib.microphone ? { deviceId: videoLib.microphone.deviceId } : false,
+        });
+        mediaStreamRef.current = stream;
+        if (videoRef.current) videoRef.current.srcObject = stream;
+      } catch (error) {
+        console.error("Error accessing media devices:", error);
       }
-    };
-    getUserMedia();
-  }, [videoEnabled, audioEnabled, selectedCamera, selectedMicrophone]);
+    }
+  };
+  getUserMedia();
+  return () => {
+    mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+  };
+}, [videoLib.camera, videoLib.microphone]);
+  
   useEffect(() => {
     if (isError) {
       const newError = error as unknown as {
@@ -150,7 +156,7 @@ export default function VideoPage() {
         <Loading />
       </div>
     );
-  } 
+  }
   if (showAddUsernamePrompt) {
     return (
       <AppLayout>
@@ -206,7 +212,7 @@ export default function VideoPage() {
             </header>
             <main className="max-w-4xl mx-auto p-4">
               <div className="relative aspect-video bg-zinc-900 rounded-lg mb-6">
-                {videoEnabled ?
+                {videoLib.camera ?
                   <video
                     ref={videoRef}
                     autoPlay
@@ -221,19 +227,50 @@ export default function VideoPage() {
               <div className="flex justify-center gap-4 mb-8">
                 <Button
                   variant="outline"
-                  className={`rounded-full p-3 h-auto text-black bg-white ${!videoEnabled ? "bg-red-500/20 text-red-500 hover:bg-red-500/30 hover:text-red-500" : ""}`}
-                  onClick={() => setVideoEnabled(!videoEnabled)}
-                >
-                  {videoEnabled ?
+                  className={`rounded-full p-3 h-auto text-black bg-white ${!videoLib.camera ? "bg-red-500/20 text-red-500 hover:bg-red-500/30 hover:text-red-500" : ""}`} onClick={() => {
+                    if(videoLib.camera) {
+                      handleCloseCamera()
+                      setVideoLib(prev => ({
+                        ...prev,
+                        camera: null,
+                      }));
+                    } else {
+                      if(videoLib.cameras.length === 0) {
+                        alert("Please give camera permissions")
+                        return;
+                      }
+                      setVideoLib(prev => ({
+                        ...prev,
+                        camera: videoLib.cameras[0],
+                      }));
+                    }
+                  }}>
+                  {videoLib.camera ?
                     <Video className="h-5 w-5" />
                   : <VideoOff className="h-5 w-5" />}
                 </Button>
                 <Button
                   variant="outline"
-                  className={`rounded-full p-3 h-auto text-black bg-white ${!audioEnabled ? "bg-red-500/20 text-red-500 hover:bg-red-500/30 hover:text-red-500" : ""}`}
-                  onClick={() => setAudioEnabled(!audioEnabled)}
-                >
-                  {audioEnabled ?
+                  className={`rounded-full p-3 h-auto text-black bg-white ${!videoLib.microphone ? "bg-red-500/20 text-red-500 hover:bg-red-500/30 hover:text-red-500" : ""}`} 
+                  onClick={() => {
+                    if(videoLib.microphone) {
+                      handleCloseMicrophone()
+                      setVideoLib(prev => ({
+                        ...prev,
+                        microphone: null,
+                      }));
+                    } else {
+                      if(videoLib.microphones.length === 0) {
+                        alert("Please give microphone permissions")
+                        return;
+                      }
+                      setVideoLib(prev => ({
+                        ...prev,
+                        microphone: videoLib.microphones[0],
+                      }));
+                    }
+                  }}>
+                  {videoLib.microphone ?
                     <Mic className="h-5 w-5" />
                   : <MicOff className="h-5 w-5" />}
                 </Button>
@@ -247,16 +284,30 @@ export default function VideoPage() {
                     <Camera className="h-4 w-4" />
                     Camera
                   </label>
-                  <Select value={selectedCamera} onValueChange={setSelectedCamera}>
+                  <Select value={videoLib.camera?.deviceId} onValueChange={(deviceId) => {
+                    let camera: MediaDeviceInfo | null = null;
+                    for(let i = 0; i < videoLib.cameras.length; i++) {
+                      if(videoLib.cameras[i].deviceId === deviceId) {
+                        camera = videoLib.cameras[i];
+                      }
+                    }
+                    if(!camera) return;
+                    setVideoLib(prev => ({
+                      ...prev,
+                      camera
+                    }));
+                  }}>
                     <SelectTrigger className="w-full bg-zinc-900">
                       <SelectValue placeholder="Select camera" />
                     </SelectTrigger>
                     <SelectContent>
-                      {videoLib.cameras.map((camera) => (
-                        <SelectItem key={camera.deviceId} value={camera.deviceId || "Unknown camera"}>
-                          {camera.label || "Unknown camera"}
-                        </SelectItem>
-                      ))}
+                      <>
+                        {videoLib.cameras.map((camera) => (
+                          <SelectItem key={camera.deviceId} value={camera.deviceId || "Unknown camera"}>
+                          {camera.label}
+                          </SelectItem>
+                        ))}
+                      </>
                     </SelectContent>
                   </Select>
                 </div>
@@ -267,7 +318,19 @@ export default function VideoPage() {
                       Microphone
                     </label>
                   </div>
-                  <Select value={selectedMicrophone} onValueChange={setSelectedMicrophone}>
+                  <Select value={videoLib.microphone?.deviceId} onValueChange={(deviceId) => {
+                    let microphone: MediaDeviceInfo | null = null;
+                    for(let i = 0; i < videoLib.microphones.length; i++) {
+                      if(videoLib.microphones[i].deviceId === deviceId) {
+                        microphone = videoLib.microphones[i];
+                      }
+                    }
+                    if(!microphone) return;
+                    setVideoLib(prev => ({
+                      ...prev,
+                      microphone
+                    }));
+                  }}>
                     <SelectTrigger className="w-full bg-zinc-900">
                       <SelectValue placeholder="Select microphone" />
                     </SelectTrigger>
@@ -287,7 +350,19 @@ export default function VideoPage() {
                       Speakers
                     </label>
                   </div>
-                  <Select value={selectedSpeaker} onValueChange={setSelectedSpeaker} >
+                  <Select value={videoLib.speaker?.deviceId} onValueChange={(deviceId) => {
+                    let speaker: MediaDeviceInfo | null = null;
+                    for(let i = 0; i < videoLib.speakers.length; i++) {
+                      if(videoLib.speakers[i].deviceId === deviceId) {
+                        speaker = videoLib.speakers[i];
+                      }
+                    }
+                    if(!speaker) return;
+                    setVideoLib(prev => ({
+                      ...prev,
+                      speaker
+                    }));
+                  }} >
                     <SelectTrigger className="w-full bg-zinc-900">
                       <SelectValue placeholder="Select speakers" />
                     </SelectTrigger>
