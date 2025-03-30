@@ -3,7 +3,7 @@ import os from "os";
 
 const config = {
   listenIp: "0.0.0.0",
-  listenPort: 3016,
+  listenPort: 8080,
   mediasoup: {
     numWorkers: Object.keys(os.cpus()).length,
     worker: {
@@ -13,7 +13,7 @@ const config = {
       logTags: ["info", "ice", "dtls", "rtp", "srtp", "rtcp"] as WorkerLogTag[],
     },
     router: {
-      mediaCodes: [
+      mediaCodecs: [
         {
           kind: "audio",
           mimeType: "audio/opus",

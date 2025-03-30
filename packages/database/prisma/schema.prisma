@@ -101,9 +101,9 @@ model Booking {
   endTime     String
   meetingDate DateTime
   meetingLink String
+  otherGuests Json[]
   status      BookingStatus @default(PENDING)
   event       Event         @relation(fields: [eventId], references: [id])
-  joinedCall  String[]
 }
 
 model ReservedSlot {

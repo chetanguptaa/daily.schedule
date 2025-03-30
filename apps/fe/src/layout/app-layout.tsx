@@ -4,7 +4,7 @@ import axios from "axios";
 import { useEffect } from "react";
 import { useSetRecoilState } from "recoil";
 
-export default function CallLayout({ children }: { children: React.ReactNode }) {
+export default function AppLayout({ children }: { children: React.ReactNode }) {
   const setUser = useSetRecoilState(userAtom);
   useEffect(() => {
     const getResponse = async () => {

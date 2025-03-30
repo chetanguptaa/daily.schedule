@@ -26,3 +26,8 @@ export const addUserToCall = z.object({
 });
 
 export type IAddUserToMeeting = z.infer<typeof addUserToCall>;
+
+export enum IUserCallStatus {
+  JOINED = 'JOINED',
+  NOT_JOINED = 'NOT_JOINED',
+}

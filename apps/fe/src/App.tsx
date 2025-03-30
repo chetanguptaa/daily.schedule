@@ -8,7 +8,6 @@ import EventTypes from "./pages/event-types/EventTypes";
 import AddSlots from "./pages/availability/add-slots/AddSlots";
 import EditEvents from "./pages/event-types/edit-events/edit-events";
 import BookEvent from "./pages/app/book-event/BookEvent";
-import CallPage from "./pages/app/call/call";
 import Booking from "./pages/booking/Booking";
 import VideoPage from "./pages/app/video/Video";
 
@@ -27,7 +26,6 @@ function App() {
         <Route path="/event-types/:id" element={<EditEvents />} />
         <Route path="/:userId/:eventLink" element={<BookEvent />} />
         <Route path="/video/:bookingId" element={<VideoPage />} />
-        <Route path="/video/:bookingId/call" element={<CallPage />} />
       </Routes>
     </BrowserRouter>
   );

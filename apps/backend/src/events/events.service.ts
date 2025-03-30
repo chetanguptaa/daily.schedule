@@ -3,12 +3,19 @@ import {
   Injectable,
   InternalServerErrorException,
 } from '@nestjs/common';
-import { IAddUserToMeeting, ICreateEvent, IUpdateEvent } from './dto';
+import {
+  IAddUserToMeeting,
+  ICreateEvent,
+  IUpdateEvent,
+  IUserCallStatus,
+} from './dto';
 import prisma from '@repo/database';
+import { randomUUID } from 'crypto';
+import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
 export class EventsService {
-  constructor() {}
+  constructor(private jwtService: JwtService) {}
 
   async createEvent(userId: string, data: ICreateEvent) {
     const schedule = await prisma.schedule.findFirst({
@@ -143,18 +150,29 @@ export class EventsService {
   }
 
   async addUnauthenticatedUserToMeeting(id: string, data: IAddUserToMeeting) {
+    const guestId = randomUUID();
+    const guestObj = {
+      guestId,
+      username: data.username,
+    };
+    const token = this.jwtService.sign(guestObj);
     await prisma.booking.update({
       where: {
         id,
       },
       data: {
-        joinedCall: {
-          push: data.username,
+        otherGuests: {
+          push: {
+            ...guestObj,
+            status: IUserCallStatus.NOT_JOINED,
+          },
         },
       },
     });
     return {
-      name: data.username,
+      token,
+      id: guestObj.guestId,
+      username: guestObj.username,
     };
   }
 }
