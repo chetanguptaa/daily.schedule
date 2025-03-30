@@ -177,22 +177,15 @@ export default function VideoPage() {
       const message = JSON.parse(event.data);
       console.log("Received:", message);
       switch (message.type) {
-        case ESocketIncomingMessage.ROUTER_RTP_CAPABILITIES:
+        case ESocketIncomingMessage.ROUTER_RTP_CAPABILITIES: {
           await loadDevice(message.data);
-          socket.send(JSON.stringify({ type: ESocketOutgoingMessage.CREATE_TRANSPORT }));
+          socket.send(JSON.stringify({ type: ESocketOutgoingMessage.CREATE_TRANSPORT, isSender: true }));
+          socket.send(JSON.stringify({ type: ESocketOutgoingMessage.CREATE_TRANSPORT, isSender: false }));
           break;
-        case "transportCreated":
-          createTransports(message.data);
+        }
+        case ESocketIncomingMessage.TRANSPORT_CREATED: {
           break;
-        case "producerCreated":
-          console.log("Producer created:", message.data);
-          break;
-        case "newProducer":
-          socket.send(JSON.stringify({ type: "consume", producerId: message.data.id }));
-          break;
-        case "consumerCreated":
-          handleConsumer(message.data);
-          break;
+        }
       }
     };
     return () => socket.close();
@@ -202,42 +195,6 @@ export default function VideoPage() {
     const mediasoupDevice = new mediasoupClient.Device();
     await mediasoupDevice.load({ routerRtpCapabilities });
     setDevice(mediasoupDevice);
-  };
-  const createTransports = async (transportData: mediasoupClient.types.TransportOptions) => {
-    if (!device || !socket) return;
-    const sendTransport = device.createSendTransport(transportData);
-    setSendTransport(sendTransport);
-    sendTransport.on("connect", ({ dtlsParameters }, callback) => {
-      socket.send(JSON.stringify({ type: "connectTransport", dtlsParameters }));
-      callback();
-    });
-    sendTransport.on("produce", ({ kind, rtpParameters }, callback) => {
-      socket.send(JSON.stringify({ type: "produce", kind, rtpParameters }));
-      callback({ id: "some-id" });
-    });
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    const videoTrack = stream.getVideoTracks()[0];
-    videoRef.current!.srcObject = stream;
-    const producer = await sendTransport.produce({ track: videoTrack });
-    setProducer(producer);
-  };
-  const handleConsumer = async (consumerData) => {
-    if (!device || !socket) return;
-    const recvTransport = device.createRecvTransport(consumerData);
-    setRecvTransport(recvTransport);
-    recvTransport.on("connect", ({ dtlsParameters }, callback) => {
-      socket.send(JSON.stringify({ type: "connectTransport", dtlsParameters }));
-      callback();
-    });
-    const consumer = await recvTransport.consume({
-      id: consumerData.id,
-      producerId: consumerData.producerId,
-      kind: consumerData.kind,
-      rtpParameters: consumerData.rtpParameters,
-    });
-    const remoteStream = new MediaStream();
-    remoteStream.addTrack(consumer.track);
-    remoteVideoRef.current!.srcObject = remoteStream;
   };
 
   if (isLoading) {

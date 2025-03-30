@@ -9,7 +9,8 @@ import { extractAuthUser } from "./auth";
 const WebSocketConnection = async (websocket: WebSocket.Server) => {
   try {
     const workerManager = await WorkerManager.getInstance()
-    const worker = workerManager.getNextWorker();
+    const worker = workerManager.worker;
+    if(!worker) return;
     websocket.on("connection", async (ws: WebSocket, req: Request) => {
       const token: string = url.parse(req.url, true).query.token as string;
       const user = await extractAuthUser(token, ws);
@@ -21,130 +22,94 @@ const WebSocketConnection = async (websocket: WebSocket.Server) => {
           case (ESocketIncomingMessage.GET_ROUTER_RTP_CAPABILITIES): {
             const roomId = uuidv4();
             const router = await workerManager.createRouter(worker);
-            workerManager.rooms.set(roomId, { 
-              router,
-              producerTransports: new Map(), 
-              consumerTransports: new Map(), 
-              videoConsumers: new Map(), 
-              videoProducers: new Map() ,
-              audioConsumers: new Map(), 
-              audioProducers: new Map() 
-            });
             ws.send(JSON.stringify({ type: ESocketOutgoingMessage.ROUTER_RTP_CAPABILITIES, data: {
               roomId, 
               rtpCapabilities: router.rtpCapabilities 
             }}));
             break;
           }
-          case (ESocketIncomingMessage.CREATE_CONSUMER_TRANSPORT && data.roomId): {
-            const roomId = uuidv4();
-            const router = await workerManager.createRouter(worker);
-            workerManager.rooms.set(roomId, { 
-              router, 
-              producerTransports: new Map(), 
-              consumerTransports: new Map(), 
-              videoConsumers: new Map(), 
-              videoProducers: new Map() ,
-              audioConsumers: new Map(), 
-              audioProducers: new Map() 
-            });
-            ws.send(JSON.stringify({ type: ESocketOutgoingMessage.ROUTER_RTP_CAPABILITIES, data: {
-              roomId, 
-              rtpCapabilities: router.rtpCapabilities 
-            }}));
-            ws.send(JSON.stringify({ type: ESocketOutgoingMessage.ROUTER_RTP_CAPABILITIES,  data: {
-              rtpCapabilities: router.rtpCapabilities, 
-              roomId 
-            }}));
-            break;
-          }
-          case (ESocketIncomingMessage.CONNECT_TRANSPORT && data.roomId && data.transportId && data.dtlsParameters): {
-            const room = workerManager.rooms.get(data.roomId);
-            if(!room) return;
-            const transport = room.producerTransports.get(data.transportId) || room.consumerTransports.get(data.transportId);
-            if (!transport) return;
-            await transport.connect({ dtlsParameters: data.dtlsParameters });
-            ws.send(JSON.stringify({ 
-              type: ESocketOutgoingMessage.TRANSPORT_CONNECTED 
-            }));
-            break;
-          }
-          case (ESocketIncomingMessage.CREATE_PRODUCER_TRANSPORT && data.roomId): {
-            const room = workerManager.rooms.get(data.roomId);
-            if(!room) return;
-            const router = room.router;
-            const transport = await router.createWebRtcTransport({
-              listenIps: [{ ip: "127.0.0.1", announcedIp: undefined }],
-              enableUdp: true,
-              enableTcp: true,
-              preferUdp: true,
-            });
-            room.consumerTransports.set(transport.id, transport);
-            ws.send(JSON.stringify({ 
-              type: ESocketOutgoingMessage.CONSUMER_TRANSPORT_CREATED,
-              transportId: transport.id, 
-              transportOptions: {
-                iceParameters: transport.iceParameters,
-                iceCandidates: transport.iceCandidates,
-                dtlsParameters: transport.dtlsParameters,
-              }
-            }));
-            break;
-          }
-          case (ESocketIncomingMessage.PRODUCE && data.roomId && data.transportId && data.kind): {
-            const room = workerManager.rooms.get(data.roomId);
-            if(!room) return;
-            const transport = room.producerTransports.get(data.transportId);
-            if(!transport) return;
-            const producer = await transport.produce({ kind: data.kind, rtpParameters: data.rtpCapabilities });
-            if(data.kind === "video") {
-              room.videoProducers.set(producer.id, producer);
+          case (ESocketIncomingMessage.CREATE_TRANSPORT): {
+            if(data.isSender) {
+              const transportAndParams = await workerManager.createWebRtcTransport();
+              if(!transportAndParams) return;
+              workerManager.producerTransport = transportAndParams.transport;
+              ws.send(JSON.stringify({ type: ESocketOutgoingMessage.TRANSPORT_CREATED, data: {
+                ...transportAndParams.params 
+              }}));
+            } else {
+             const transportAndParams = await workerManager.createWebRtcTransport();
+              if(!transportAndParams) return;
+              workerManager.consumerTransport = transportAndParams.transport;
+              ws.send(JSON.stringify({ type: ESocketOutgoingMessage.TRANSPORT_CREATED, data: {
+                ...transportAndParams.params 
+              }}));
             }
-            if(data.kind === "audio") {
-              room.audioProducers.set(producer.id, producer);
-            }
-            ws.send(JSON.stringify({ 
-              type: ESocketOutgoingMessage.PRODUCER_CREATED, 
-              producerId: producer.id 
-            }));
+            break; 
+          }
+          case (ESocketIncomingMessage.CONNECT_TRANSPORT): {
+            if(!workerManager.producerTransport) return;
+            await workerManager.producerTransport.connect({ 
+              dtlsParameters: data.dtlsParameters 
+            })
             break;
           }
-          case (ESocketIncomingMessage.CONSUME && data.roomId && data.transportId): {
-            const room = workerManager.rooms.get(data.roomId);
-            if (!room) return;
-            const transport = room.consumerTransports.get(data.transportId);
-            if (!transport) return;
-            let producer: Producer | undefined;
-            if (data.kind === "video") {
-              producer = room.videoProducers.values().next().value;
-            } else if (data.kind === "audio") {
-              producer = room.audioProducers.values().next().value;
-            }
-            if (!producer) return ws.send(JSON.stringify({ error: "No available producer" }));
+          case (ESocketIncomingMessage.RECV_CONNECT): {
+            if(!workerManager.consumerTransport || !data.dtlsParameters) return;
+            await workerManager.consumerTransport.connect({ 
+              dtlsParameters: data.dtlsParameters 
+            })
+          }
+          case (ESocketIncomingMessage.PRODUCE): {
+            if(!workerManager.producerTransport || !data.kind || !data.rtpParameters) return;
+            workerManager.producer = await workerManager.producerTransport.produce({
+              kind: data.kind,
+              rtpParameters: data.rtpParameters,
+            })
+            workerManager.producer.on('transportclose', () => {
+              console.log('transport for this producer closed ')
+              if(!workerManager.producer) return;
+              workerManager.producer.close()
+            })
+            ws.send(JSON.stringify({
+              id: workerManager.producer.id
+            }))
+            break;
+          }
+          case (ESocketIncomingMessage.CONSUME): {
+            if(!workerManager.router || !workerManager.producer || !data.rtpCapabilities || !workerManager.consumerTransport) return;
             try {
-              const consumer = await transport.consume({
-                producerId: producer.id,
-                rtpCapabilities: data.rtpCapabilities,
-                paused: true,
-              });
-              if (data.kind === "video") {
-                room.videoConsumers.set(consumer.id, consumer);
-              } else if (data.kind === "audio") {
-                room.audioConsumers.set(consumer.id, consumer);
+              if (workerManager.router.canConsume({
+                producerId: workerManager.producer.id,
+                rtpCapabilities: data.rtpCapabilities
+              })) {
+                workerManager.consumer = await workerManager.consumerTransport.consume({
+                  producerId: workerManager.producer.id,
+                  rtpCapabilities: data.rtpCapabilities,
+                  paused: true,
+                })
+                workerManager.consumer.on('transportclose', () => {
+                  console.log('transport close from consumer')
+                })
+                workerManager.consumer.on('producerclose', () => {
+                  console.log('producer of consumer closed')
+                })
+                const params = {
+                  id: workerManager.consumer.id,
+                  producerId: workerManager.producer.id,
+                  kind: workerManager.consumer.kind,
+                  rtpParameters: workerManager.consumer.rtpParameters,
+                }
+                ws.send(JSON.stringify(params))
               }
-              ws.send(JSON.stringify({
-                type: ESocketOutgoingMessage.CONSUMER_CREATED,
-                consumerId: consumer.id,
-                producerId: producer.id,
-                kind: consumer.kind,
-                rtpParameters: consumer.rtpParameters,
-              }));
             } catch (error) {
-              console.error("Error consuming producer:", error);
-              ws.send(JSON.stringify({ error: "Error consuming producer" }));
+              console.log("error ", error)
             }
+            break;
           }
-          break;
+          case (ESocketIncomingMessage.CONSUMER_RESUME): {
+            if(!workerManager.consumer) return;
+            await workerManager.consumer.resume()
+          }
           default: {
             break;
           }
