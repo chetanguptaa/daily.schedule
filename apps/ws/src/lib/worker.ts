@@ -1,89 +1,53 @@
 import * as mediasoup from "mediasoup";
 import config from "../config";
 import { Worker } from "mediasoup/node/lib/WorkerTypes";
-import { Router } from "mediasoup/node/lib/RouterTypes";
-import { Transport } from "mediasoup/node/lib/TransportTypes";
-import { Producer } from "mediasoup/node/lib/ProducerTypes";
-import { Consumer } from "mediasoup/node/lib/ConsumerTypes";
+import { Room } from "./room";
 import { User } from "./user";
 
 export default class WorkerManager {
-  worker: Worker | null;
-  router: Router | null;
-  producer: Producer | null;
-  consumer: Consumer | null;
-  producerTransport: Transport | null;
-  consumerTransport: Transport | null;
-  users: User[]
+  workers: Worker[];
+  nextMediasoupWorkerIdx: number;
+  roomList: Map<string, Room>;
+  userRoomMapping: Map<User, Room[]>;
   private static instance: WorkerManager;
   private constructor() {
-     this.worker = null;
-     this.router = null;
-     this.producer = null;
-     this.consumer = null;
-     this.producerTransport = null;
-     this.consumerTransport = null;
-     this.users = [];
+    this.workers = [];
+    this.nextMediasoupWorkerIdx = 0;
+    this.roomList = new Map();
+    this.userRoomMapping = new Map();
   }
   static async getInstance() {
-    if(!WorkerManager.instance) {
+    if (!WorkerManager.instance) {
       WorkerManager.instance = new WorkerManager();
-      await WorkerManager.instance.initWorker();
+      await WorkerManager.instance.initWorkers();
     }
     return WorkerManager.instance;
   }
-  private async initWorker(): Promise<Worker> {
-    this.worker = await mediasoup.createWorker({
-      rtcMinPort: 2000,
-      rtcMaxPort: 2020,
-    })
-    console.log(`worker pid ${this.worker.pid}`)
-    this.worker.on('died', error => {
-      console.error('mediasoup worker has died')
-      setTimeout(() => process.exit(1), 2000);
-    })
-    return this.worker
-  };
-  async createRouter (worker: Worker) {
-    const mediasoupRouter = await worker.createRouter(config.mediasoup.router);
-    return mediasoupRouter;
-  }
-  async createWebRtcTransport () {
-    if(!this.router) return;
-    try {
-      const webRtcTransport_options = {
-        listenIps: [
-          {
-            ip: '0.0.0.0', // replace with relevant IP address
-            announcedIp: '127.0.0.1',
-          }
-        ],
-        enableUdp: true,
-        enableTcp: true,
-        preferUdp: true,
-      }
-      let transport = await this.router.createWebRtcTransport(webRtcTransport_options)
-      console.log(`transport id: ${transport.id}`)
-      transport.on('dtlsstatechange', dtlsState => {
-        if (dtlsState === 'closed') {
-          transport.close()
-        }
-      })
-      transport.on('@close', () => {
-        console.log('transport closed')
-      })
-      return {
-        transport,
-         params: {
-          id: transport.id,
-          iceParameters: transport.iceParameters,
-          iceCandidates: transport.iceCandidates,
-          dtlsParameters: transport.dtlsParameters,
-        } 
-      }
-    } catch (error) {
-      console.log(error)
-      return null;
+  private async initWorkers() {
+    const { numWorkers } = config.mediasoup;
+    for (let i = 0; i < numWorkers; i++) {
+      const worker = await mediasoup.createWorker({
+        logLevel: config.mediasoup.worker.logLevel,
+        logTags: config.mediasoup.worker.logTags,
+        rtcMinPort: config.mediasoup.worker.rtcMinPort,
+        rtcMaxPort: config.mediasoup.worker.rtcMaxPort,
+      });
+      worker.on("died", () => {
+        console.error("mediasoup worker died, exiting in 2 seconds... [pid:%d]", worker.pid);
+        setTimeout(() => process.exit(1), 2000);
+      });
+      this.workers.push(worker);
+      setInterval(async () => {
+        const usage = await worker.getResourceUsage();
+        console.info("mediasoup Worker resource usage [pid:%d]: %o", worker.pid, usage);
+      }, 120000);
     }
+  }
+  getMediasoupWorker() {
+    const worker = this.workers[this.nextMediasoupWorkerIdx];
+    if (++this.nextMediasoupWorkerIdx === this.workers.length) {
+      this.nextMediasoupWorkerIdx = 0;
+    }
+    return worker;
   }
 }
