@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   InternalServerErrorException,
+  NotFoundException,
 } from '@nestjs/common';
 import {
   IAddUserToMeeting,
@@ -92,6 +93,7 @@ export class EventsService {
         schedule: true,
       },
     });
+    if (!event) throw new NotFoundException('Event does not exist');
     return {
       id: event.id,
       title: event.title,

@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import prisma from '@repo/database';
-import { DayOfWeek, IBookSlot } from './dto';
+import { IBookSlot } from './dto';
 import {
   addMinutes,
   addMonths,
@@ -21,6 +21,7 @@ import {
 } from 'date-fns';
 import { googleCalenderManager } from 'src/google-calender-manager/GoogleCalenderManager';
 import { format, fromZonedTime, toZonedTime } from 'date-fns-tz';
+import { DayOfWeek } from 'src/calender/dto';
 
 @Injectable()
 export class SlotsService {
@@ -113,8 +114,7 @@ export class SlotsService {
         startTime: dayInfo.startTime,
         endTime: dayInfo.endTime,
         meetingDate: data.startTime,
-        // @ts-expect-error TODO -> we'll look into it
-        dayOfWeek: dayInfo.dayOfWeek,
+        dayOfWeek: dayInfo.dayOfWeek as unknown as any,
         meetingLink: res.hangoutLink,
       },
     });
@@ -168,7 +168,7 @@ export class SlotsService {
     );
     return timesInOrder.filter((intervalDate) => {
       const availabilities = this.getAvailabilities(
-        // @ts-expect-error TODO -> Figure out the type
+        // @ts-expect-error TODO -> fix the ts issue later
         groupedAvailabilities,
         intervalDate,
         schedule.timezone,

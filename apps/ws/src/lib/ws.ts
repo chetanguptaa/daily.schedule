@@ -87,7 +87,7 @@ const WebSocketConnection = async (websocket: WebSocket.Server) => {
             }
             break;
           }
-          case ESocketIncomingMessage.CREATE_TRANSPORT: {
+          case ESocketIncomingMessage.CREATE_CONSUMER_TRANSPORT: {
             try {
               const roomId = data.roomId;
               if (roomId) {
@@ -97,7 +97,31 @@ const WebSocketConnection = async (websocket: WebSocket.Server) => {
                   if (params) {
                     ws.send(
                       JSON.stringify({
-                        type: ESocketOutgoingMessage.TRANSPORT_CREATED,
+                        type: ESocketOutgoingMessage.CONSUMER_TRANSPORT_CREATED,
+                        data: {
+                          ...params,
+                        },
+                      })
+                    );
+                  }
+                }
+              }
+            } catch (error) {
+              console.log("error ", error);
+            }
+            break;
+          }
+          case ESocketIncomingMessage.CREATE_PRODUCER_TRANSPORT: {
+            try {
+              const roomId = data.roomId;
+              if (roomId) {
+                const room = workerManager.roomList.get(roomId);
+                if (room) {
+                  const params = await room.createWebRtcTransport(user.id);
+                  if (params) {
+                    ws.send(
+                      JSON.stringify({
+                        type: ESocketOutgoingMessage.PRODUCER_TRANSPORT_CREATED,
                         data: {
                           ...params,
                         },

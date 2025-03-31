@@ -5,6 +5,7 @@ import { Worker } from "mediasoup/node/lib/WorkerTypes";
 import { User } from "./user";
 import { DtlsParameters } from "mediasoup/node/lib/WebRtcTransportTypes";
 import { MediaKind, RtpCapabilities, RtpParameters } from "mediasoup/node/lib/rtpParametersTypes";
+import { ESocketOutgoingMessage } from "../types";
 
 export class Room {
   id: string;
@@ -119,6 +120,12 @@ export class Room {
     if (!consumerParams) return;
     consumerParams.consumer.on("producerclose", () => {
       this.users.get(user.id)?.removeConsumer(consumerParams.consumer.id);
+      this.socket.send(
+        JSON.stringify({
+          type: ESocketOutgoingMessage.CONSUMER_CLOSED,
+          consumerId: consumerParams.params.id,
+        })
+      );
     });
     return consumerParams.params;
   }

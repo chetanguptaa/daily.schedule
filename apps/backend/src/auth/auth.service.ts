@@ -24,6 +24,7 @@ export class AuthService {
     res: Response,
   ): Promise<{
     encodedUser?: string;
+    token?: string;
     error?: string;
   }> {
     try {
@@ -48,9 +49,10 @@ export class AuthService {
       const encodedUser = this.encodeUserDataAsJwt({
         ...existingUser,
       });
-      this.setJwtTokenToCookies(res, existingUser);
+      const token = this.setJwtTokenToCookies(res, existingUser);
       return {
         encodedUser,
+        token,
       };
     } catch (error) {
       console.log(
@@ -120,16 +122,14 @@ export class AuthService {
       expires: new Date(expirationDateInMilliseconds),
       sameSite: 'lax',
     };
-    res.cookie(
-      COOKIE_NAMES.AUTH_TOKEN,
-      this.jwtService.sign({
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        picture: user.picture,
-      }),
-      cookieOptions,
-    );
+    const token = this.jwtService.sign({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      picture: user.picture,
+    });
+    res.cookie(COOKIE_NAMES.AUTH_TOKEN, token, cookieOptions);
+    return token;
   }
 
   private encodeUserDataAsJwt(user: IUser) {
