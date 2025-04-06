@@ -53,13 +53,14 @@ export default function VideoPage() {
   const user = useRecoilValue(userAtom);
   const [showAddUsernamePrompt, setShowAddUsernamePrompt] = useState(false);
   const socket = useSocket();
-  const [device, setDevice] = useState<mediasoupClient.Device | null>(null);
+  const deviceRef = useRef<mediasoupClient.Device | null>(null);
   const [producerTransport, setProducerTransport] = useState<mediasoupClient.types.Transport | null>(null);
   const [consumerTransport, setConsumerTransport] = useState<mediasoupClient.types.Transport | null>(null);
   const [consumers, setConsumers] = useState<Map<string, mediasoupClient.types.Consumer>>(new Map());
   const remoteVideoRefs = useRef<(HTMLVideoElement | null)[]>([]);
   const [audioParams, setAudioParams] = useState<ProducerOptions<AppData> | undefined>(undefined);
   const [videoParams, setVideoParams] = useState<ProducerOptions<AppData> | undefined>(undefined);
+  const produceCallbackRef = useRef<(({ id }: { id: string }) => void) | null>(null);
 
   const addUnauthenticatedUserToTheMeetingMutation = useMutation(
     ({ bookingId, username }: { bookingId: string; username: string }) =>
@@ -151,9 +152,9 @@ export default function VideoPage() {
       }
     };
     getUserMedia();
-    return () => {
-      localStream.current?.getTracks().forEach((track) => track.stop());
-    };
+    // return () => {
+    //   localStream.current?.getTracks().forEach((track) => track.stop());
+    // };
   }, [videoLib.camera, videoLib.microphone, meetingJoined]);
 
   useEffect(() => {
@@ -201,7 +202,7 @@ export default function VideoPage() {
             })
           );
           break;
-        case ESocketIncomingMessage.ROOM_JOINED: {
+        case ESocketIncomingMessage.ROOM_JOINED:
           socket.send(
             JSON.stringify({
               type: ESocketOutgoingMessage.GET_ROUTER_RTP_CAPABILITIES,
@@ -209,8 +210,7 @@ export default function VideoPage() {
             })
           );
           break;
-        }
-        case ESocketIncomingMessage.ROUTER_RTP_CAPABILITIES:
+        case ESocketIncomingMessage.ROUTER_RTP_CAPABILITIES: {
           await loadDevice(message.data);
           socket.send(
             JSON.stringify({
@@ -225,13 +225,24 @@ export default function VideoPage() {
             })
           );
           break;
+        }
         case ESocketIncomingMessage.PRODUCER_TRANSPORT_CREATED:
-          setupTransport(message.data, true);
+          await setupTransport(message.data, true);
           break;
         case ESocketIncomingMessage.CONSUMER_TRANSPORT_CREATED:
-          setupTransport(message.data, false);
+          await setupTransport(message.data, false);
           break;
-        case ESocketIncomingMessage.CONSUMER_CREATED: {
+        case ESocketIncomingMessage.SEND_PRODUCER:
+          if (produceCallbackRef.current) {
+            produceCallbackRef.current({ id: message.producerId });
+            produceCallbackRef.current = null;
+          }
+          // startConsuming(message.producerId);
+          break;
+        case ESocketIncomingMessage.NEW_PRODUCER:
+          // startConsuming(message.data);
+          break;
+        case ESocketIncomingMessage.SEND_CONSUMER: {
           if (!consumerTransport) return;
           const consumer = await consumerTransport.consume({
             id: message.data.id,
@@ -239,17 +250,19 @@ export default function VideoPage() {
             kind: message.data.kind,
             rtpParameters: message.data.rtpParameters,
           });
-          const newConsumers = consumers.set(message.data.id, consumer);
+          const newConsumers = new Map(consumers);
+          newConsumers.set(message.data.id, consumer);
           setConsumers(newConsumers);
           const newStream = new MediaStream();
           newStream.addTrack(consumer.track);
-          const lastIdx = remoteVideoRefs.current.length - 1;
-          remoteVideoRefs.current[lastIdx + 1]!.srcObject = newStream;
+          const availableIndex = remoteVideoRefs.current.findIndex((ref) => !ref?.srcObject);
+          if (availableIndex !== -1 && remoteVideoRefs.current[availableIndex]) {
+            remoteVideoRefs.current[availableIndex]!.srcObject = newStream;
+          } else {
+            console.warn("No available video ref for remote stream");
+          }
           break;
         }
-        case ESocketIncomingMessage.PRODUCER_CREATED:
-          startConsuming(message.data.producerId);
-          break;
         default:
           break;
       }
@@ -260,22 +273,27 @@ export default function VideoPage() {
   const loadDevice = async (routerRtpCapabilities: mediasoupClient.types.RtpCapabilities): Promise<void> => {
     const mediasoupDevice = new Device();
     await mediasoupDevice.load({ routerRtpCapabilities });
-    setDevice(mediasoupDevice);
+    deviceRef.current = mediasoupDevice;
   };
 
   const setupTransport = async (
     transportOptions: mediasoupClient.types.TransportOptions,
     isProducer: boolean
   ): Promise<void> => {
-    if (!device || !socket) return;
+    if (!deviceRef.current || !socket) return;
+    console.log("Setting up transport:", isProducer ? "Producer" : "Consumer");
     if (isProducer) {
-      const producerTransport = device.createSendTransport(transportOptions);
+      console.log("transport options ", transportOptions);
+      //@ts-expect-error look into it later
+      const producerTransport = deviceRef.current.createSendTransport(transportOptions.params);
+      setProducerTransport(producerTransport);
       producerTransport.on("connect", ({ dtlsParameters }, callback) => {
         socket.send(
           JSON.stringify({
             type: ESocketOutgoingMessage.CONNECT_TRANSPORT,
             dtlsParameters,
             transportId: transportOptions.id,
+            roomId: bookingId,
           })
         );
         callback();
@@ -286,78 +304,75 @@ export default function VideoPage() {
             type: ESocketOutgoingMessage.PRODUCE,
             kind,
             rtpParameters,
+            roomId: bookingId,
+            producerTransportId: producerTransport.id,
           })
         );
-        socket.onmessage = (event: MessageEvent) => {
-          const response = JSON.parse(event.data);
-          if (response.type === ESocketIncomingMessage.PRODUCER_CREATED) {
-            callback({ id: response.producerId });
-          }
-        };
+        produceCallbackRef.current = callback;
       });
-      setProducerTransport(producerTransport);
     } else {
-      const consumerTransport = device.createRecvTransport(transportOptions);
+      console.log("transport options 2 ", transportOptions);
+      //@ts-expect-error look into it later
+      const consumerTransport = deviceRef.current.createRecvTransport(transportOptions.params);
+      setConsumerTransport(consumerTransport);
       consumerTransport.on("connect", ({ dtlsParameters }, callback) => {
         socket.send(
           JSON.stringify({
             type: ESocketOutgoingMessage.CONNECT_TRANSPORT,
             dtlsParameters,
             transportId: transportOptions.id,
+            roomId: bookingId,
           })
         );
         callback();
       });
-      setConsumerTransport(consumerTransport);
     }
   };
 
-  const startConsuming = async (producerId: string): Promise<void> => {
-    if (!consumerTransport || !device || !socket) return;
-    socket.send(JSON.stringify({ type: ESocketOutgoingMessage.CONSUME, producerId }));
-    socket.onmessage = async (event: MessageEvent) => {
-      const message = JSON.parse(event.data);
-      if (message.type === ESocketIncomingMessage.CONSUMER_CREATED) {
-        const consumer = await consumerTransport.consume({
-          id: message.data.id,
-          producerId: message.data.producerId,
-          kind: message.data.kind,
-          rtpParameters: message.data.rtpParameters,
-        });
-        const newConsumers = consumers.set(message.data.id, consumer);
-        setConsumers(newConsumers);
-        const newStream = new MediaStream();
-        newStream.addTrack(consumer.track);
-        const lastIdx = remoteVideoRefs.current.length - 1;
-        remoteVideoRefs.current[lastIdx + 1]!.srcObject = newStream;
-      }
-    };
+  // const consumeMedia = async ({ producerId, kind, peerId }) => {
+  //   const { id, kind: mediaKind, rtpParameters } = await requestConsumer(producerId);
+  //   const consumer = await consumerTransport.consume({
+  //     id,
+  //     producerId,
+  //     kind: mediaKind,
+  //     rtpParameters,
+  //   });
+  //   const stream = new MediaStream([consumer.track]);
+  //   if (mediaKind === "video") {
+  //     addRemoteStream(peerId, stream); // ← You’ll implement this
+  //   } else if (mediaKind === "audio") {
+  //     addRemoteAudio(peerId, stream); // ← Same
+  //   }
+  //   await socket.emit("resume-consumer", { consumerId: id });
+  // };
+
+  const connectSendTransport = async () => {
+    console.log("hi there");
+    if (!producerTransport) return;
+    console.log("hi there 2");
+
+    if (audioParams?.track && audioParams.track.readyState === "live") {
+      const audioProducer = await producerTransport.produce(audioParams);
+      audioProducer.on("trackended", () => console.log("audio track ended"));
+      audioProducer.on("transportclose", () => console.log("audio transport ended"));
+    } else {
+      console.warn("Audio track is not live or undefined");
+    }
+
+    if (videoParams?.track && videoParams.track.readyState === "live") {
+      const videoProducer = await producerTransport.produce(videoParams);
+      videoProducer.on("trackended", () => console.log("video track ended"));
+      videoProducer.on("transportclose", () => console.log("video transport ended"));
+    } else {
+      console.warn("Video track is not live or undefined");
+    }
   };
 
   useEffect(() => {
-    const connectSendTransport = async () => {
-      if (!producerTransport) return;
-      if (audioParams) {
-        const audioProducer = await producerTransport.produce(audioParams);
-        audioProducer.on("trackended", () => {
-          console.log("audio track ended");
-        });
-        audioProducer.on("transportclose", () => {
-          console.log("audio transport ended");
-        });
-      }
-      if (videoParams) {
-        const videoProducer = await producerTransport.produce(videoParams);
-        videoProducer.on("trackended", () => {
-          console.log("video track ended");
-        });
-        videoProducer.on("transportclose", () => {
-          console.log("video transport ended");
-        });
-      }
-    };
-    connectSendTransport();
-  }, [audioParams, producerTransport, videoParams]);
+    if (producerTransport && (audioParams || videoParams)) {
+      connectSendTransport();
+    }
+  }, [producerTransport, audioParams, videoParams]);
 
   useEffect(() => {
     return () => {

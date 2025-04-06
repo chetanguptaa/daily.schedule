@@ -171,6 +171,18 @@ const WebSocketConnection = async (websocket: WebSocket.Server) => {
                   producerId: producer.producerId,
                 })
               );
+              for (const otherClient of room.getUsers().values()) {
+                if (otherClient.id !== user.id) {
+                  otherClient.socket.send(
+                    JSON.stringify({
+                      type: ESocketOutgoingMessage.NEW_PRODUCER,
+                      producerId: producer.producerId,
+                      kind: producer.kind,
+                      peerId: user.id,
+                    })
+                  );
+                }
+              }
             } catch (error) {
               console.log("error ", error);
             }

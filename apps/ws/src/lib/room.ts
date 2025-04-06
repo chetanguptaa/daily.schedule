@@ -101,6 +101,7 @@ export class Room {
     return {
       producerId: producer.id,
       userId: user.id,
+      kind: producer.kind,
     };
   }
 
