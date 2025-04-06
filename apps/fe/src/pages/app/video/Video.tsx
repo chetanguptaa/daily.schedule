@@ -21,8 +21,7 @@ import { toast } from "sonner";
 import mediasoupClient, { Device } from "mediasoup-client";
 import { ESocketIncomingMessage, ESocketOutgoingMessage } from "@/schema/socket-message";
 import Cookies from "js-cookie";
-import { EMediaTypes } from "@/schema/video";
-import { ProducerCodecOptions, RtpEncodingParameters } from "mediasoup-client/types";
+import { AppData, ProducerOptions } from "mediasoup-client/types";
 
 async function getBookingDetails(bookingId: string) {
   const res = await axios.get(BACKEND_URL + "/events/bookings/" + bookingId, {
@@ -53,6 +52,15 @@ export default function VideoPage() {
   const [guest, setGuest] = useRecoilState(guestAtom);
   const user = useRecoilValue(userAtom);
   const [showAddUsernamePrompt, setShowAddUsernamePrompt] = useState(false);
+  const socket = useSocket();
+  const [device, setDevice] = useState<mediasoupClient.Device | null>(null);
+  const [producerTransport, setProducerTransport] = useState<mediasoupClient.types.Transport | null>(null);
+  const [consumerTransport, setConsumerTransport] = useState<mediasoupClient.types.Transport | null>(null);
+  const [consumers, setConsumers] = useState<Map<string, mediasoupClient.types.Consumer>>(new Map());
+  const remoteVideoRefs = useRef<(HTMLVideoElement | null)[]>([]);
+  const [audioParams, setAudioParams] = useState<ProducerOptions<AppData> | undefined>(undefined);
+  const [videoParams, setVideoParams] = useState<ProducerOptions<AppData> | undefined>(undefined);
+
   const addUnauthenticatedUserToTheMeetingMutation = useMutation(
     ({ bookingId, username }: { bookingId: string; username: string }) =>
       addUnauthenticatedUserToTheMeeting(bookingId, username),
@@ -72,6 +80,7 @@ export default function VideoPage() {
       },
     }
   );
+
   const handleAddUnauthenticatedUserDetails = () => {
     if (!bookingId || !username) {
       console.error("Booking ID or username is missing");
@@ -124,6 +133,18 @@ export default function VideoPage() {
           });
           localStream.current = stream;
           if (videoRef.current) videoRef.current.srcObject = stream;
+          if (videoLib.microphone) {
+            setAudioParams((prev) => ({
+              track: stream.getAudioTracks()[0],
+              ...prev,
+            }));
+          }
+          if (videoLib.camera) {
+            setVideoParams((prev) => ({
+              track: stream.getVideoTracks()[0],
+              ...prev,
+            }));
+          }
         } catch (error) {
           console.error("Error accessing media devices:", error);
         }
@@ -133,7 +154,7 @@ export default function VideoPage() {
     return () => {
       localStream.current?.getTracks().forEach((track) => track.stop());
     };
-  }, [videoLib.camera, videoLib.microphone]);
+  }, [videoLib.camera, videoLib.microphone, meetingJoined]);
 
   useEffect(() => {
     if (isError) {
@@ -159,17 +180,6 @@ export default function VideoPage() {
     }
   }, [guest.guest?.exists, user.isLoggedIn]);
 
-  // ---- MEDIASOUP CLIENT
-  const socket = useSocket();
-  const [device, setDevice] = useState<mediasoupClient.Device | null>(null);
-  const [producerTransport, setProducerTransport] = useState<mediasoupClient.types.Transport | null>(null);
-  const [consumerTransport, setConsumerTransport] = useState<mediasoupClient.types.Transport | null>(null);
-  const [producers, setProducers] = useState<Map<string, mediasoupClient.types.Producer>>(new Map());
-  const [consumers, setConsumers] = useState<Map<string, mediasoupClient.types.Consumer>>(new Map());
-  const [producerLabel, setProducerLabel] = useState<Map<string, string>>(new Map());
-  const remoteVideoRefs = useRef<(HTMLVideoElement | null)[]>([]);
-  const [videos, setVideos] = useState<number[]>([]);
-
   useEffect(() => {
     if (socket === null || !meetingJoined || !bookingId || socket.readyState !== 1) {
       return;
@@ -191,7 +201,7 @@ export default function VideoPage() {
             })
           );
           break;
-        case ESocketIncomingMessage.ROOM_JOINED:
+        case ESocketIncomingMessage.ROOM_JOINED: {
           socket.send(
             JSON.stringify({
               type: ESocketOutgoingMessage.GET_ROUTER_RTP_CAPABILITIES,
@@ -199,11 +209,18 @@ export default function VideoPage() {
             })
           );
           break;
+        }
         case ESocketIncomingMessage.ROUTER_RTP_CAPABILITIES:
           await loadDevice(message.data);
           socket.send(
             JSON.stringify({
               type: ESocketOutgoingMessage.CREATE_PRODUCER_TRANSPORT,
+              roomId: bookingId,
+            })
+          );
+          socket.send(
+            JSON.stringify({
+              type: ESocketOutgoingMessage.CREATE_CONSUMER_TRANSPORT,
               roomId: bookingId,
             })
           );
@@ -240,16 +257,6 @@ export default function VideoPage() {
     return () => socket.close();
   }, [bookingId, meetingJoined, socket]);
 
-  const createProducer = () => {
-    if (!socket || !bookingId) return;
-    socket.send(
-      JSON.stringify({
-        type: ESocketOutgoingMessage.CREATE_CONSUMER_TRANSPORT,
-        roomId: bookingId,
-      })
-    );
-  };
-
   const loadDevice = async (routerRtpCapabilities: mediasoupClient.types.RtpCapabilities): Promise<void> => {
     const mediasoupDevice = new Device();
     await mediasoupDevice.load({ routerRtpCapabilities });
@@ -273,9 +280,24 @@ export default function VideoPage() {
         );
         callback();
       });
+      producerTransport.on("produce", async ({ kind, rtpParameters }, callback) => {
+        socket.send(
+          JSON.stringify({
+            type: ESocketOutgoingMessage.PRODUCE,
+            kind,
+            rtpParameters,
+          })
+        );
+        socket.onmessage = (event: MessageEvent) => {
+          const response = JSON.parse(event.data);
+          if (response.type === ESocketIncomingMessage.PRODUCER_CREATED) {
+            callback({ id: response.producerId });
+          }
+        };
+      });
       setProducerTransport(producerTransport);
     } else {
-      const consumerTransport = device.createSendTransport(transportOptions);
+      const consumerTransport = device.createRecvTransport(transportOptions);
       consumerTransport.on("connect", ({ dtlsParameters }, callback) => {
         socket.send(
           JSON.stringify({
@@ -287,162 +309,6 @@ export default function VideoPage() {
         callback();
       });
       setConsumerTransport(consumerTransport);
-    }
-  };
-
-  useEffect(() => {
-    if (!producerTransport || !socket || (!videoLib.camera && !videoLib.microphone)) return;
-    producerTransport.on("produce", async ({ kind, rtpParameters }, callback) => {
-      socket.send(
-        JSON.stringify({
-          type: ESocketOutgoingMessage.PRODUCE,
-          kind,
-          rtpParameters,
-        })
-      );
-      socket.onmessage = (event: MessageEvent) => {
-        const response = JSON.parse(event.data);
-        if (response.type === ESocketIncomingMessage.PRODUCER_CREATED) {
-          callback({ id: response.producerId });
-        }
-      };
-    });
-  }, [producerTransport, socket, videoLib.camera, videoLib.microphone]);
-
-  const startProducing = async (type: EMediaTypes, deviceId: string | null = null): Promise<void> => {
-    if (!device || !producerTransport) return;
-    let mediaConstraints = {};
-    let audio = false;
-    let screen = false;
-    switch (type) {
-      case EMediaTypes.AUDIO_TYPE:
-        mediaConstraints = {
-          audio: {
-            deviceId: deviceId,
-          },
-          video: false,
-        };
-        audio = true;
-        break;
-      case EMediaTypes.VIDEO_TYPE:
-        mediaConstraints = {
-          audio: false,
-          video: {
-            width: {
-              min: 640,
-              ideal: 1920,
-            },
-            height: {
-              min: 400,
-              ideal: 1080,
-            },
-            deviceId: deviceId,
-            /*aspectRatio: {
-                            ideal: 1.7777777778
-                        }*/
-          },
-        };
-        break;
-      case EMediaTypes.SCREEN_TYPE:
-        mediaConstraints = false;
-        screen = true;
-        break;
-      default:
-        return;
-    }
-    if (!device.canProduce("video") && !audio) {
-      return;
-    }
-    if (producerLabel.has(type)) {
-      return;
-    }
-    let stream;
-    try {
-      stream =
-        screen ?
-          await navigator.mediaDevices.getDisplayMedia()
-        : await navigator.mediaDevices.getUserMedia(mediaConstraints);
-      const track = audio ? stream.getAudioTracks()[0] : stream.getVideoTracks()[0];
-      const params: {
-        track: MediaStreamTrack;
-        encodings: RtpEncodingParameters[];
-        codecOptions: ProducerCodecOptions | undefined;
-      } = {
-        track,
-        encodings: [],
-        codecOptions: undefined,
-      };
-      if (!audio && !screen) {
-        params.encodings = [
-          {
-            rid: "r0",
-            maxBitrate: 100000,
-            //scaleResolutionDownBy: 10.0,
-            scalabilityMode: "S1T3",
-          },
-          {
-            rid: "r1",
-            maxBitrate: 300000,
-            scalabilityMode: "S1T3",
-          },
-          {
-            rid: "r2",
-            maxBitrate: 900000,
-            scalabilityMode: "S1T3",
-          },
-        ];
-        params.codecOptions = {
-          videoGoogleStartBitrate: 1000,
-        };
-      }
-      const producer = await producerTransport.produce(params);
-      const newProducers = producers.set(producer.id, producer);
-      setProducers(newProducers);
-      producer.on("trackended", () => {
-        closeProducer(type);
-      });
-      producer.on("transportclose", () => {
-        console.log("Producer transport close");
-        if (!audio) {
-          localStream.current?.getTracks().forEach(function (track) {
-            track.stop();
-          });
-        }
-        producers.delete(producer.id);
-      });
-      producer.on("@close", () => {
-        console.log("Closing producer");
-        if (!audio) {
-          localStream.current?.getTracks().forEach(function (track) {
-            track.stop();
-          });
-        }
-        producers.delete(producer.id);
-      });
-      producerLabel.set(type, producer.id);
-    } catch (err) {
-      console.log("Produce error:", err);
-    }
-  };
-
-  const closeProducer = (type: string) => {
-    const producerId = producerLabel.get(type);
-    if (!producerId || !socket) return;
-    socket.send(
-      JSON.stringify({
-        type: ESocketOutgoingMessage.PRODUCER_CLOSED,
-        producerId,
-      })
-    );
-    const producer = producers.get(producerId);
-    if (!producer) return;
-    producer.close();
-    producers.delete(producerId);
-    producerLabel.delete(type);
-    if (type !== EMediaTypes.AUDIO_TYPE) {
-      localStream.current?.getTracks().forEach(function (track) {
-        track.stop();
-      });
     }
   };
 
@@ -467,6 +333,31 @@ export default function VideoPage() {
       }
     };
   };
+
+  useEffect(() => {
+    const connectSendTransport = async () => {
+      if (!producerTransport) return;
+      if (audioParams) {
+        const audioProducer = await producerTransport.produce(audioParams);
+        audioProducer.on("trackended", () => {
+          console.log("audio track ended");
+        });
+        audioProducer.on("transportclose", () => {
+          console.log("audio transport ended");
+        });
+      }
+      if (videoParams) {
+        const videoProducer = await producerTransport.produce(videoParams);
+        videoProducer.on("trackended", () => {
+          console.log("video track ended");
+        });
+        videoProducer.on("transportclose", () => {
+          console.log("video transport ended");
+        });
+      }
+    };
+    connectSendTransport();
+  }, [audioParams, producerTransport, videoParams]);
 
   useEffect(() => {
     return () => {
@@ -566,7 +457,6 @@ export default function VideoPage() {
                         ...prev,
                         camera: videoLib.cameras[0],
                       }));
-                      startProducing(EMediaTypes.VIDEO_TYPE, videoLib.cameras[0].deviceId);
                     }
                   }}
                 >
