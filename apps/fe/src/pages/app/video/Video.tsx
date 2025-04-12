@@ -1,13 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import { Mic, MicOff, Share, Video, VideoOff, MessageSquare, Settings } from "lucide-react";
 import * as mediasoup from "mediasoup-client";
-import { useParams } from "react-router";
+import { useNavigate, useParams } from "react-router";
 import { BACKEND_URL, WEBSOCKET_URL } from "@/constants";
 import { ESocketIncomingMessages, ESocketOutgoingMessages } from "@/schema/socket-message";
 import axios from "axios";
-import { useQuery } from "react-query";
-import { useRecoilState } from "recoil";
+import { useMutation, useQuery } from "react-query";
+import { useRecoilState, useRecoilValue } from "recoil";
 import videoLibAtom from "@/store/atoms/videoLibAtom";
+import guestAtom from "@/store/atoms/guestAtom";
+import userAtom from "@/store/atoms/userAtom";
+import { toast } from "sonner";
+import queryClient from "@/lib/queryClient";
+import Cookies from "js-cookie";
+import Loading from "@/components/loading";
 
 async function getBookingDetails(bookingId: string) {
   const res = await axios.get(BACKEND_URL + "/events/bookings/" + bookingId, {
@@ -27,9 +33,15 @@ async function addUnauthenticatedUserToTheMeeting(bookingId: string, username: s
 
 export default function VideoPage() {
   const params = useParams();
+  const navigate = useNavigate();
   const bookingId = params.bookingId;
   const { isLoading, isError, error } = useQuery(["getBookingDetails"], () => getBookingDetails(bookingId || ""));
   const [videoLib, setVideoLib] = useRecoilState(videoLibAtom);
+  const [username, setUsername] = useState("");
+  const [meetingJoined, setMeetingJoined] = useState(false);
+  const [guest, setGuest] = useRecoilState(guestAtom);
+  const user = useRecoilValue(userAtom);
+  const [showAddUsernamePrompt, setShowAddUsernamePrompt] = useState(false);
   const [micOn, setMicOn] = useState(true);
   const [cameraOn, setCameraOn] = useState(true);
   const [isSharing, setIsSharing] = useState(false);
@@ -43,6 +55,58 @@ export default function VideoPage() {
   const receiveTransportRef = useRef<mediasoup.types.Transport<mediasoup.types.AppData> | undefined>(undefined);
   const videoProducerRef = useRef<mediasoup.types.Producer | null>(null);
   const audioProducerRef = useRef<mediasoup.types.Producer | null>(null);
+
+  const addUnauthenticatedUserToTheMeetingMutation = useMutation(
+    ({ bookingId, username }: { bookingId: string; username: string }) =>
+      addUnauthenticatedUserToTheMeeting(bookingId, username),
+    {
+      onSuccess: (data) => {
+        setShowAddUsernamePrompt(false);
+        queryClient.invalidateQueries(["getBookingDetails"]);
+        Cookies.set("auth_token", data.token);
+        localStorage.setItem("auth_token", data.token);
+        setGuest({
+          guest: {
+            exists: true,
+            username: data.username,
+            id: data.id,
+          },
+        });
+      },
+    }
+  );
+
+  const handleAddUnauthenticatedUserDetails = () => {
+    if (!bookingId || !username) {
+      console.error("Booking ID or username is missing");
+      return;
+    }
+    addUnauthenticatedUserToTheMeetingMutation.mutate({ bookingId, username });
+  };
+
+  useEffect(() => {
+    if (isError) {
+      const newError = error as unknown as {
+        response: {
+          data: {
+            message: string;
+          };
+        };
+      };
+      toast(newError.response.data.message);
+      navigate("/");
+    }
+  }, [error, isError, navigate]);
+
+  useEffect(() => {
+    if (user.isLoggedIn) {
+      setShowAddUsernamePrompt(false);
+    } else {
+      if (!guest.guest?.exists) {
+        setShowAddUsernamePrompt(true);
+      }
+    }
+  }, [guest.guest?.exists, user.isLoggedIn]);
 
   useEffect(() => {
     wsRef.current = new WebSocket(WEBSOCKET_URL + "?token=" + localStorage.getItem("auth_token"));
@@ -375,6 +439,14 @@ export default function VideoPage() {
       isActive: false,
     },
   ];
+
+  if (isLoading) {
+    return (
+      <div className="flex w-full justify-center items-center h-full min-h-screen">
+        <Loading />
+      </div>
+    );
+  }
 
   return (
     <>
