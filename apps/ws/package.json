@@ -1,27 +1,22 @@
 {
-  "name": "ws",
+  "name": "ws-2",
   "version": "1.0.0",
   "description": "",
-  "main": "dist/index.js",
+  "main": "index.js",
   "scripts": {
-    "start": "tsc -b && node dist/index.js",
-    "dev": "DEBUG=mediasoup:* ts-node src"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "dotenv": "^16.4.7",
-    "express": "^4.21.2",
+    "dotenv": "^16.5.0",
     "jsonwebtoken": "^9.0.2",
-    "mediasoup": "^3.15.2",
-    "uuid": "^11.1.0",
-    "ws": "^8.18.0"
+    "mediasoup": "^3.15.7",
+    "ws": "^8.18.1"
   },
   "devDependencies": {
-    "@types/express": "^4.17.17",
     "@types/jsonwebtoken": "^9.0.9",
-    "@types/ws": "^8.5.12",
-    "ts-node": "^10.9.1"
+    "@types/ws": "^8.18.0"
   }
 }
