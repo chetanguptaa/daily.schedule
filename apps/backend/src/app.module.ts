@@ -7,6 +7,7 @@ import { UserModule } from './user/user.module';
 import { CalenderModule } from './calender/calender.module';
 import { EventsModule } from './events/events.module';
 import { SlotsModule } from './slots/slots.module';
+import { BookingsModule } from './bookings/bookings.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -20,6 +21,7 @@ import configuration from './config/configuration';
     CalenderModule,
     EventsModule,
     SlotsModule,
+    BookingsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

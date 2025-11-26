@@ -366,19 +366,6 @@ importers:
         specifier: ^8.18.0
         version: 8.18.1
 
-  apps/ws-2-temp:
-    dependencies:
-      mediasoup:
-        specifier: ^3.15.7
-        version: 3.15.7
-      ws:
-        specifier: ^8.18.1
-        version: 8.18.1(bufferutil@4.0.8)(utf-8-validate@5.0.10)
-    devDependencies:
-      '@types/ws':
-        specifier: ^8.18.0
-        version: 8.18.1
-
   packages/database:
     dependencies:
       '@prisma/client':

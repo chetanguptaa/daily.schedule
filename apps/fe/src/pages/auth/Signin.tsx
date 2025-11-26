@@ -19,7 +19,11 @@ export default function Signin() {
   });
   if (data?.data) navigate("/dashboard");
   if (isLoading) {
-    return <Loading />;
+    return (
+      <div className="flex items-center justify-center h-screen w-full">
+        <Loading />
+      </div>
+    );
   }
   return (
     <main className="flex flex-col items-center justify-center px-6 py-8 mx-auto md:h-screen lg:py-0">

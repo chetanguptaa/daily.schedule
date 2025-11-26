@@ -22,8 +22,7 @@ import { Button } from "./ui/button";
 import { useRecoilValue } from "recoil";
 import userAtom from "@/store/atoms/userAtom";
 import LogoutBtn from "./logout-btn";
-import { useEffect, useState } from "react";
-import { Link, useLocation } from "react-router";
+import { Link } from "react-router";
 
 const items = [
   {
@@ -44,20 +43,11 @@ const items = [
 ];
 
 export function AppSidebar() {
-  const [selectedTab, setSelectedTab] = useState(0);
-  const location = useLocation();
-  useEffect(() => {
-    console.log(location.pathname);
-    if (location.pathname.startsWith("/availability")) {
-      setSelectedTab(2);
-    }
-    if (location.pathname.startsWith("/bookings")) {
-      setSelectedTab(1);
-    }
-    if (location.pathname.startsWith("/event-types")) {
-      setSelectedTab(0);
-    }
-  }, [location.pathname]);
+  const selectedTab = (() => {
+    if (location.pathname.startsWith("/availability")) return 2;
+    if (location.pathname.startsWith("/bookings")) return 1;
+    return 0;
+  })();
   return (
     <Sidebar collapsible="none" className="min-w-36 max-h-[100vh] h-[100vh] hidden sm:flex max-w-48">
       <SidebarContent>
@@ -73,8 +63,7 @@ export function AppSidebar() {
                   >
                     <Link
                       to={item.url}
-                      onClick={() => setSelectedTab(i)}
-                      className={selectedTab === i ? "bg-black text-white  hover:bg-black" : ""}
+                      className={`${selectedTab === i ? "bg-black text-white  hover:bg-black" : ""} flex items-center gap-2 p-2 rounded-md`}
                     >
                       <item.icon />
                       <span>{item.title}</span>

@@ -20,5 +20,9 @@ export default function Redirect() {
     }
     navigate("/dashboard");
   }, [navigate, searchParams]);
-  return <Loading />;
+  return (
+    <div className="flex items-center justify-center h-screen w-full">
+      <Loading />
+    </div>
+  );
 }
