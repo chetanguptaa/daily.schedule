@@ -1,19 +1,34 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import prisma from '@repo/database';
-import { BookingStatus } from './dto';
+import { EBookingStatus, IUpdateBookingStatus } from './dto';
 
 @Injectable()
 export class BookingsService {
   constructor() {}
 
-  async getBookings(userId: string, status: BookingStatus) {
+  async getBookings(userId: string, status: EBookingStatus) {
+    const user = await prisma.user.findFirst({
+      where: {
+        id: userId,
+      },
+      select: {
+        email: true,
+      },
+    });
     const bookings = await prisma.booking.findMany({
       where: {
-        event: {
-          user: {
-            id: userId,
+        OR: [
+          {
+            event: {
+              user: {
+                id: userId,
+              },
+            },
           },
-        },
+          {
+            guestEmail: user.email,
+          },
+        ],
       },
       include: {
         event: {
@@ -28,23 +43,56 @@ export class BookingsService {
         },
       },
     });
-    return this.getBookingsByStatus(bookings, status);
+    const enriched = bookings.map((b) => ({
+      ...b,
+      isGuest: b.guestEmail === user.email,
+    }));
+    return this.getBookingsByStatus(enriched, status);
   }
 
-  private getBookingsByStatus(bookings: any[], status: BookingStatus) {
+  async updateBookingStatus(userId: string, body: IUpdateBookingStatus) {
+    const booking = await prisma.booking.findUnique({
+      where: {
+        id: body.bookingId,
+        event: {
+          user: {
+            id: userId,
+          },
+        },
+      },
+      include: {
+        event: true,
+      },
+    });
+    if (!booking) throw new BadRequestException('Booking not found');
+    if (booking.event.userId !== userId)
+      throw new BadRequestException(
+        'You are not authorized to update the status of this booking',
+      );
+    return await prisma.booking.update({
+      where: {
+        id: body.bookingId,
+      },
+      data: {
+        status: body.status,
+      },
+    });
+  }
+
+  private getBookingsByStatus(bookings: any[], status: EBookingStatus) {
     switch (status) {
-      case BookingStatus.UPCOMING:
+      case EBookingStatus.CONFIRMED:
         return bookings.filter((booking) => booking.meetingDate > new Date());
-      case BookingStatus.PAST:
-        return bookings.filter((booking) => booking.meetingDate < new Date());
-      case BookingStatus.CANCELED:
+      case EBookingStatus.REJECTED:
         return bookings.filter(
-          (booking) => booking.status === BookingStatus.CANCELED,
+          (booking) => booking.status === EBookingStatus.REJECTED,
         );
-      case BookingStatus.UNCONFIRMED:
-        return bookings.filter((booking) => booking.status === 'PENDING');
+      case EBookingStatus.PENDING:
+        return bookings.filter(
+          (booking) => booking.status === EBookingStatus.PENDING,
+        );
       default:
-        throw new BadRequestException('Invalid status');
+        return bookings.filter((booking) => booking.meetingDate < new Date());
     }
   }
 }

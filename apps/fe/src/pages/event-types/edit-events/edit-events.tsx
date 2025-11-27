@@ -54,7 +54,22 @@ async function updateEvent(data: {
 export default function EditEvents() {
   const [selectedTab, setSelectedTab] = useState(0);
   const user = useRecoilValue(userAtom);
-  const [event, setEvent] = useState({
+  const [event, setEvent] = useState<{
+    title: string;
+    description: string;
+    id: string;
+    link: string;
+    duration: number;
+    platform: {
+      name: string;
+      id: string;
+    };
+    schedule: string;
+    platforms: {
+      id: string;
+      name: string;
+    }[];
+  }>({
     title: "",
     description: "",
     id: "",
@@ -65,6 +80,7 @@ export default function EditEvents() {
       id: "",
     },
     schedule: "",
+    platforms: [],
   });
   const params = useParams();
   const [searchParams] = useSearchParams();
@@ -97,6 +113,7 @@ export default function EditEvents() {
           id: data.platform.id,
         },
         schedule: data.schedule,
+        platforms: data.platforms,
       });
     }
   }, [data, isError, isLoading]);
@@ -314,6 +331,7 @@ export default function EditEvents() {
                         </div>
                         <div className="flex flex-col space-y-1.5">
                           <Label htmlFor="platform">Platform</Label>
+                          <div></div>
                           <Select
                             value={JSON.stringify({ id: event.platform.id, name: event.platform.name })}
                             onValueChange={handlePlatformChange}
@@ -322,9 +340,14 @@ export default function EditEvents() {
                               <SelectValue placeholder="Select" />
                             </SelectTrigger>
                             <SelectContent position="popper">
-                              <SelectItem value={JSON.stringify({ id: event.platform.id, name: event.platform.name })}>
-                                {event.platform.name}
-                              </SelectItem>
+                              {event.platforms.map((platform) => (
+                                <SelectItem
+                                  key={platform.id}
+                                  value={JSON.stringify({ id: platform.id, name: platform.name })}
+                                >
+                                  {platform.name}
+                                </SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                         </div>

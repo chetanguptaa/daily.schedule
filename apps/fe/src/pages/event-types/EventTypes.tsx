@@ -119,7 +119,7 @@ export default function EventTypes() {
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Add a new Schedule</AlertDialogTitle>
+                  <AlertDialogTitle>Add a new Event</AlertDialogTitle>
                 </AlertDialogHeader>
                 <div className="grid w-full max-w-full items-center gap-1.5">
                   <Label htmlFor="title">Title</Label>

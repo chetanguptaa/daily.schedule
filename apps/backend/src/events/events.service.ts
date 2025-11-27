@@ -93,6 +93,12 @@ export class EventsService {
         schedule: true,
       },
     });
+    const platforms = await prisma.platform.findMany({
+      select: {
+        id: true,
+        name: true,
+      },
+    });
     if (!event) throw new NotFoundException('Event does not exist');
     return {
       id: event.id,
@@ -107,6 +113,7 @@ export class EventsService {
       schedule: event.schedule.title,
       timezone: event.schedule.timezone,
       default: event.schedule.default,
+      platforms,
     };
   }
 

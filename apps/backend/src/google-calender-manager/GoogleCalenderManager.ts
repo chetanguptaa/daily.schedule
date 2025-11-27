@@ -91,8 +91,8 @@ class GoogleCalenderManager {
     guestNotes,
     durationInMinutes,
     eventName,
-    platform,
     timezone,
+    isPlatformDefault,
   }: {
     userId?: string;
     guestName?: string;
@@ -103,6 +103,7 @@ class GoogleCalenderManager {
     eventName?: string;
     platform?: string;
     timezone: string;
+    isPlatformDefault?: boolean;
   }) {
     try {
       const oAuthClient = await this.getOAuthClient(userId);
@@ -111,43 +112,48 @@ class GoogleCalenderManager {
           id: userId,
         },
       });
-      const calendarEvent = await google.calendar('v3').events.insert({
-        calendarId: 'primary',
-        auth: oAuthClient,
-        sendUpdates: 'all',
-        requestBody: {
-          attendees: [
-            { email: guestEmail, displayName: guestName },
-            {
-              email: user.email,
-              displayName: user.name,
-              responseStatus: 'accepted',
+      if (isPlatformDefault) {
+        const calendarEvent = await google.calendar('v3').events.insert({
+          calendarId: 'primary',
+          auth: oAuthClient,
+          sendUpdates: 'all',
+          requestBody: {
+            attendees: [
+              { email: guestEmail, displayName: guestName },
+              {
+                email: user.email,
+                displayName: user.name,
+                responseStatus: 'accepted',
+              },
+            ],
+            description: guestNotes
+              ? `Additional Details: ${guestNotes}`
+              : undefined,
+            start: {
+              dateTime: startTime.toISOString(),
+              timeZone: timezone,
             },
-          ],
-          description: guestNotes
-            ? `Additional Details: ${guestNotes}`
-            : undefined,
-          start: {
-            dateTime: startTime.toISOString(),
-            timeZone: timezone,
-          },
-          end: {
-            dateTime: addMinutes(startTime, durationInMinutes).toISOString(),
-            timeZone: timezone,
-          },
-          summary: `${guestName} + ${user.name}: ${eventName}`,
-          conferenceData: {
-            createRequest: {
-              requestId: 'meet-' + Math.random().toString(36).substring(7),
-              conferenceSolutionKey: {
-                type: 'hangoutsMeet',
+            end: {
+              dateTime: addMinutes(startTime, durationInMinutes).toISOString(),
+              timeZone: timezone,
+            },
+            summary: `${guestName} + ${user.name}: ${eventName}`,
+            conferenceData: {
+              createRequest: {
+                requestId: 'meet-' + Math.random().toString(36).substring(7),
+                conferenceSolutionKey: {
+                  type: 'hangoutsMeet',
+                },
               },
             },
           },
-        },
-        conferenceDataVersion: 1,
-      });
-      return calendarEvent.data;
+          conferenceDataVersion: 1,
+        });
+        return calendarEvent.data;
+      }
+      return {
+        hangoutLink: this.generateRandomMeetingLink(),
+      };
     } catch (error) {
       console.log('error ', JSON.stringify(error, null, 2));
       throw error;
@@ -215,6 +221,29 @@ class GoogleCalenderManager {
       console.error('Error during access token validation:', error);
       return false;
     }
+  }
+
+  private async resolveMeetingPlatform(isPlatformDefault: boolean) {
+    if (isPlatformDefault) {
+      return {
+        conferenceData: {
+          createRequest: {
+            requestId: 'meet-' + Math.random().toString(36).substring(7),
+            conferenceSolutionKey: { type: 'hangoutsMeet' },
+          },
+        },
+      };
+    } else {
+      const meetingUrl = this.generateRandomMeetingLink();
+      return {
+        link: meetingUrl,
+      };
+    }
+  }
+
+  private generateRandomMeetingLink() {
+    const id = Math.random().toString(36).substring(2, 12);
+    return `http://localhost:5173/meet/${id}`;
   }
 }
 

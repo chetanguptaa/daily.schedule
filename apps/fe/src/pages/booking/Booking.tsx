@@ -4,14 +4,45 @@ import { BACKEND_URL } from "@/constants";
 import RootLayout from "@/layout/root-layout";
 import axios from "axios";
 import { useState } from "react";
-import { useQuery } from "react-query";
+import { useMutation, useQuery } from "react-query";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { Globe } from "lucide-react";
+import queryClient from "@/lib/queryClient";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
 
-async function getBookings(status: string) {
+enum EBookingStatus {
+  PENDING = "PENDING",
+  CONFIRMED = "CONFIRMED",
+  REJECTED = "REJECTED",
+  PAST = "PAST",
+}
+
+async function getBookings(status: EBookingStatus) {
   const res = await axios.get(BACKEND_URL + "/bookings?status=" + status, {
     withCredentials: true,
   });
+  return res.data;
+}
+
+async function updateBookingStatus(payload: { bookingId: string; status: EBookingStatus }) {
+  const res = await axios.post(`${BACKEND_URL}/bookings/update-status`, payload, { withCredentials: true });
   return res.data;
 }
 
@@ -52,10 +83,14 @@ function formatTimeRange(startISO: string, startTime: string, endTime: string) {
 }
 
 export default function Booking() {
-  const [status, setStatus] = useState("upcoming");
-
+  const [status, setStatus] = useState<EBookingStatus>(EBookingStatus.CONFIRMED);
+  const updateBookingStatusMutation = useMutation(updateBookingStatus, {
+    onSuccess: (data) => {
+      toast(data.message);
+      queryClient.invalidateQueries(["getBookings", status]);
+    },
+  });
   const { data, isLoading, isError } = useQuery(["getBookings", status], () => getBookings(status));
-
   const renderList = (list: any[]) => {
     if (isLoading)
       return (
@@ -113,7 +148,51 @@ export default function Booking() {
                 <div className="text-xs px-2 py-1 rounded-full bg-secondary text-secondary-foreground capitalize">
                   {item.status.toLowerCase()}
                 </div>
-                <button className="text-gray-500 hover:text-gray-700">⋯</button>
+                {!item.isGuest && (
+                  <AlertDialog>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className="text-gray-500 hover:text-gray-700">...</button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={() => {
+                            updateBookingStatusMutation.mutate({
+                              bookingId: item.id,
+                              status,
+                            });
+                          }}
+                          disabled={updateBookingStatusMutation.isLoading}
+                        >
+                          {item.status === "PENDING" ? "Confirm Booking" : "Cancel Booking"}
+                        </DropdownMenuItem>
+                        <AlertDialogTrigger asChild>
+                          <DropdownMenuItem>Cancel</DropdownMenuItem>
+                        </AlertDialogTrigger>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Cancel Booking</AlertDialogTitle>
+                        <AlertDialogDescription>Are you sure you want to cancel this booking?</AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Close</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => {
+                            updateBookingStatusMutation.mutate({
+                              bookingId: item.id,
+                              status,
+                            });
+                          }}
+                          disabled={updateBookingStatusMutation.isLoading}
+                        >
+                          Yes, Cancel
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
               </div>
             </div>
           </div>
@@ -131,17 +210,17 @@ export default function Booking() {
         </div>
 
         <div className="flex justify-between items-center mb-6">
-          <Tabs value={status} onValueChange={(v) => setStatus(v)} className="w-full">
+          <Tabs value={status} onValueChange={(v: string) => setStatus(v as EBookingStatus)} className="w-full">
             <TabsList>
-              <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
-              <TabsTrigger value="unconfirmed">Unconfirmed</TabsTrigger>
-              <TabsTrigger value="past">Past</TabsTrigger>
-              <TabsTrigger value="canceled">Canceled</TabsTrigger>
+              <TabsTrigger value={EBookingStatus.CONFIRMED}>Upcoming</TabsTrigger>
+              <TabsTrigger value={EBookingStatus.PENDING}>Unconfirmed</TabsTrigger>
+              <TabsTrigger value={EBookingStatus.PAST}>Past</TabsTrigger>
+              <TabsTrigger value={EBookingStatus.REJECTED}>Canceled</TabsTrigger>
             </TabsList>
-            <TabsContent value="upcoming">{renderList(data)}</TabsContent>
-            <TabsContent value="unconfirmed">{renderList(data)}</TabsContent>
-            <TabsContent value="past">{renderList(data)}</TabsContent>
-            <TabsContent value="canceled">{renderList(data)}</TabsContent>
+            <TabsContent value={EBookingStatus.CONFIRMED}>{renderList(data)}</TabsContent>
+            <TabsContent value={EBookingStatus.PENDING}>{renderList(data)}</TabsContent>
+            <TabsContent value={EBookingStatus.PAST}>{renderList(data)}</TabsContent>
+            <TabsContent value={EBookingStatus.REJECTED}>{renderList(data)}</TabsContent>
           </Tabs>
         </div>
       </div>

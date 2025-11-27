@@ -83,6 +83,13 @@ export class SlotsService {
         userId: data.userId,
         id: data.eventId,
       },
+      select: {
+        platform: true,
+        duration: true,
+        title: true,
+        id: true,
+        userId: true,
+      },
     });
     if (event === null) throw new BadRequestException();
     const startInTimezone = fromZonedTime(data.startTime, data.timezone);
@@ -98,7 +105,8 @@ export class SlotsService {
       startTime: startInTimezone,
       durationInMinutes: event.duration,
       eventName: event.title,
-      platform: event.platformId,
+      platform: event.platform.id,
+      isPlatformDefault: event.platform.default,
       timezone: data.timezone,
     });
     const dayInfo = this.getDayInfo(
@@ -111,6 +119,7 @@ export class SlotsService {
         eventId: event.id,
         guestName: data.guestName,
         guestEmail: data.guestEmail,
+        guestNotes: data.guestNotes,
         startTime: dayInfo.startTime,
         endTime: dayInfo.endTime,
         meetingDate: data.startTime,
